@@ -1,0 +1,99 @@
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
+import {
+  LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, History,
+  PiggyBank, Shield, User, Bell, LogOut, Menu, X,
+} from 'lucide-react'
+import { useState } from 'react'
+import clsx from 'clsx'
+
+const navItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/deposit', label: 'Deposit', icon: ArrowDownToLine },
+  { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
+  { to: '/transactions', label: 'Transactions', icon: History },
+  { to: '/savings', label: 'Savings', icon: PiggyBank },
+  { to: '/kyc', label: 'KYC', icon: Shield },
+  { to: '/notifications', label: 'Notifications', icon: Bell },
+  { to: '/profile', label: 'Profile', icon: User },
+]
+
+export default function Layout() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const logout = useAuthStore((s) => s.logout)
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile header */}
+      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => setSidebarOpen(true)} className="p-1">
+          <Menu className="w-6 h-6" />
+        </button>
+        <h1 className="text-lg font-bold text-primary-600">SavingPlus</h1>
+        <div className="w-6" />
+      </div>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="fixed inset-0 bg-black/50" />
+        </div>
+      )}
+
+      {/* Sidebar */}
+      <aside className={clsx(
+        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 lg:translate-x-0',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      )}>
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h1 className="text-xl font-bold text-primary-600">SavingPlus</h1>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <nav className="p-4 space-y-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) => clsx(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              )}
+            >
+              <item.icon className="w-5 h-5" />
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className="lg:ml-64 min-h-screen">
+        <div className="max-w-5xl mx-auto p-4 lg:p-8">
+          <Outlet />
+        </div>
+      </main>
+    </div>
+  )
+}
