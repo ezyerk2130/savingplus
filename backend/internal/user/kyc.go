@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 
 	apperr "github.com/savingplus/backend/internal/errors"
+	"github.com/savingplus/backend/pkg/logger"
 )
 
 type KYCUploadResponse struct {
@@ -24,6 +24,8 @@ type KYCUploadResponse struct {
 }
 
 func (h *Handler) UploadKYCDocument(c *gin.Context) {
+	log := logger.Ctx(c)
+
 	userID := c.GetString("user_id")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": apperr.ErrUnauthorized.Message})
@@ -56,7 +58,7 @@ func (h *Handler) UploadKYCDocument(c *gin.Context) {
 	// Read file and compute hash
 	data, err := io.ReadAll(file)
 	if err != nil {
-		log.WithError(err).Error("Failed to read uploaded file")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to read uploaded file")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -69,13 +71,13 @@ func (h *Handler) UploadKYCDocument(c *gin.Context) {
 	filePath := fmt.Sprintf("uploads/kyc/%s/%s%s", userID, docID.String(), ext)
 
 	if err := os.MkdirAll(filepath.Dir(filePath), 0750); err != nil {
-		log.WithError(err).Error("Failed to create upload directory")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to create upload directory")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
 
 	if err := os.WriteFile(filePath, data, 0640); err != nil {
-		log.WithError(err).Error("Failed to save file")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to save file")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -86,16 +88,19 @@ func (h *Handler) UploadKYCDocument(c *gin.Context) {
 		docID, userID, docType, filePath, fileHash,
 	)
 	if err != nil {
-		log.WithError(err).Error("Failed to insert KYC document")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to insert KYC document")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
 
 	// Update user KYC status if it was pending
-	h.db.ExecContext(c,
+	_, err = h.db.ExecContext(c,
 		`UPDATE users SET kyc_status = 'submitted' WHERE id = $1 AND kyc_status = 'pending'`,
 		userID,
 	)
+	if err != nil {
+		log.WithError(err).WithField("user_id", userID).Error("Failed to update KYC status to submitted")
+	}
 
 	c.JSON(http.StatusCreated, KYCUploadResponse{
 		DocumentID: docID.String(),
@@ -105,6 +110,8 @@ func (h *Handler) UploadKYCDocument(c *gin.Context) {
 }
 
 func (h *Handler) GetKYCStatus(c *gin.Context) {
+	log := logger.Ctx(c)
+
 	userID := c.GetString("user_id")
 
 	var kycStatus string
@@ -114,7 +121,7 @@ func (h *Handler) GetKYCStatus(c *gin.Context) {
 		userID,
 	).Scan(&kycStatus, &kycTier)
 	if err != nil {
-		log.WithError(err).Error("Failed to get KYC status")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to get KYC status")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -126,7 +133,7 @@ func (h *Handler) GetKYCStatus(c *gin.Context) {
 		userID,
 	)
 	if err != nil {
-		log.WithError(err).Error("Failed to query KYC documents")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to query KYC documents")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -145,6 +152,7 @@ func (h *Handler) GetKYCStatus(c *gin.Context) {
 		var d Doc
 		var rejReason sql.NullString
 		if err := rows.Scan(&d.ID, &d.DocumentType, &d.Status, &rejReason, &d.CreatedAt); err != nil {
+			log.WithError(err).WithField("user_id", userID).Error("Failed to scan KYC document row")
 			continue
 		}
 		if rejReason.Valid {

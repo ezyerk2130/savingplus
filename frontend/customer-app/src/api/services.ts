@@ -29,12 +29,19 @@ export const transactionApi = {
 
 export const savingsApi = {
   createPlan: (data: {
-    name: string; type: string; target_amount?: number; lock_duration_days?: number;
-    auto_debit?: boolean; auto_debit_amount?: number; auto_debit_frequency?: string
+    name: string; type: string; initial_amount?: number; target_amount?: number;
+    lock_duration_days?: number; auto_debit?: boolean; auto_debit_amount?: number;
+    auto_debit_frequency?: string
   }) => api.post('/savings/plan', data),
   listPlans: (status?: string) =>
     api.get<{ plans: SavingsPlan[]; total: number }>('/savings/plans', { params: { status } }),
   getPlan: (id: string) => api.get<SavingsPlan>(`/savings/plans/${id}`),
+  depositToPlan: (id: string, amount: number) =>
+    api.post(`/savings/plans/${id}/deposit`, { amount }),
+  withdrawFromPlan: (id: string, amount: number) =>
+    api.post(`/savings/plans/${id}/withdraw`, { amount }),
+  cancelPlan: (id: string) =>
+    api.post(`/savings/plans/${id}/cancel`),
 }
 
 export const kycApi = {

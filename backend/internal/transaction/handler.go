@@ -2,14 +2,14 @@ package transaction
 
 import (
 	"database/sql"
-	"math"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 
 	apperr "github.com/savingplus/backend/internal/errors"
+	"github.com/savingplus/backend/pkg/logger"
+	"github.com/savingplus/backend/pkg/response"
 )
 
 type Handler struct {
@@ -42,20 +42,12 @@ type ListResponse struct {
 }
 
 func (h *Handler) List(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
 
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	p := response.GetPagination(c, 20)
 	txnType := c.Query("type")
 	status := c.Query("status")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	offset := (page - 1) * pageSize
 
 	// Build query
 	query := `SELECT id, type, status, amount, fee, currency, reference, description, created_at, completed_at
@@ -81,12 +73,12 @@ func (h *Handler) List(c *gin.Context) {
 	}
 
 	query += ` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(argIdx) + ` OFFSET $` + strconv.Itoa(argIdx+1)
-	args = append(args, pageSize, offset)
+	args = append(args, p.PageSize, p.Offset)
 
 	// Count total
 	var total int
 	if err := h.db.QueryRowContext(c, countQuery, countArgs...).Scan(&total); err != nil {
-		log.WithError(err).Error("Failed to count transactions")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to count transactions")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -94,7 +86,7 @@ func (h *Handler) List(c *gin.Context) {
 	// Fetch page
 	rows, err := h.db.QueryContext(c, query, args...)
 	if err != nil {
-		log.WithError(err).Error("Failed to query transactions")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to query transactions")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -108,35 +100,23 @@ func (h *Handler) List(c *gin.Context) {
 		var amount, fee float64
 
 		if err := rows.Scan(&t.ID, &t.Type, &t.Status, &amount, &fee, &t.Currency, &t.Reference, &desc, &t.CreatedAt, &completedAt); err != nil {
-			log.WithError(err).Error("Failed to scan transaction")
-			continue
+			log.WithError(err).WithField("user_id", userID).Error("Failed to scan transaction row")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+			return
 		}
 
-		t.Amount = strconv.FormatFloat(amount, 'f', 2, 64)
-		t.Fee = strconv.FormatFloat(fee, 'f', 2, 64)
-		if desc.Valid {
-			t.Description = &desc.String
-		}
-		if completedAt.Valid {
-			t.CompletedAt = &completedAt.String
-		}
+		t.Amount = response.FormatMoney(amount)
+		t.Fee = response.FormatMoney(fee)
+		t.Description = response.NullStr(desc)
+		t.CompletedAt = response.NullStr(completedAt)
 		txns = append(txns, t)
 	}
 
-	if txns == nil {
-		txns = []TransactionResponse{}
-	}
-
-	c.JSON(http.StatusOK, ListResponse{
-		Transactions: txns,
-		Total:        total,
-		Page:         page,
-		PageSize:     pageSize,
-		TotalPages:   int(math.Ceil(float64(total) / float64(pageSize))),
-	})
+	response.PagedList(c, "transactions", response.EmptySlice(txns), p, total)
 }
 
 func (h *Handler) GetByID(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
 	txnID := c.Param("id")
 
@@ -155,19 +135,15 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.WithError(err).Error("Failed to get transaction")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to get transaction")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
 
-	t.Amount = strconv.FormatFloat(amount, 'f', 2, 64)
-	t.Fee = strconv.FormatFloat(fee, 'f', 2, 64)
-	if desc.Valid {
-		t.Description = &desc.String
-	}
-	if completedAt.Valid {
-		t.CompletedAt = &completedAt.String
-	}
+	t.Amount = response.FormatMoney(amount)
+	t.Fee = response.FormatMoney(fee)
+	t.Description = response.NullStr(desc)
+	t.CompletedAt = response.NullStr(completedAt)
 
 	c.JSON(http.StatusOK, t)
 }

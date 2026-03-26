@@ -1,0 +1,48 @@
+# Railway monorepo configuration
+# Deploy 3 services: backend, customer-app, admin-app
+# Add PostgreSQL and Redis as Railway addons in the dashboard
+
+# ============================================
+# DEPLOYMENT INSTRUCTIONS
+# ============================================
+# 1. Push this repo to GitHub
+# 2. Go to railway.app and create a new project
+# 3. Add PostgreSQL addon (Railway will set DATABASE_URL)
+# 4. Add Redis addon (Railway will set REDIS_URL)
+# 5. Add 3 services from the same repo:
+#
+#    SERVICE 1: backend
+#      - Root directory: backend
+#      - Set these env vars:
+#        SERVER_PORT=${{PORT}}
+#        ADMIN_SERVER_PORT=${{PORT}}    (same port = single-port mode)
+#        ENV=production
+#        LOG_LEVEL=info
+#        DB_HOST=${{Postgres.PGHOST}}
+#        DB_PORT=${{Postgres.PGPORT}}
+#        DB_USER=${{Postgres.PGUSER}}
+#        DB_PASSWORD=${{Postgres.PGPASSWORD}}
+#        DB_NAME=${{Postgres.PGDATABASE}}
+#        DB_SSLMODE=require
+#        REDIS_HOST=${{Redis.REDISHOST}}
+#        REDIS_PORT=${{Redis.REDISPORT}}
+#        REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
+#        JWT_SECRET=<generate-a-64-char-random-string>
+#        ENCRYPTION_KEY=<generate-a-64-char-hex-string>
+#        PAYMENT_GATEWAY=mock
+#        TOTP_ISSUER=SavingPlus
+#        STEPUP_THRESHOLD=100000
+#
+#    SERVICE 2: customer-app
+#      - Root directory: frontend/customer-app
+#      - Build args: VITE_API_URL=/api/v1
+#      - Set env var: BACKEND_URL=http://backend.railway.internal:${{backend.PORT}}
+#
+#    SERVICE 3: admin-app
+#      - Root directory: frontend/admin-app
+#      - Build args: VITE_API_URL=/api/v1/admin
+#      - Set env var: BACKEND_URL=http://backend.railway.internal:${{backend.PORT}}
+#
+# 6. Run migrations: railway run --service backend ./savingplus-api
+#    Or connect to Postgres and run migrations/000001_init.up.sql
+# 7. Seed admin: railway run --service backend ./savingplus-seed

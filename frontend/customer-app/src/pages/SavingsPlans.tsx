@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PiggyBank, Plus, Target, Lock, Wallet } from 'lucide-react'
+import { PiggyBank, Plus, Target, Lock, Wallet, ArrowDownCircle, ArrowUpCircle, XCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { savingsApi } from '../api/services'
+import { showError, showLoadError } from '../utils/error'
 import type { SavingsPlan } from '../types'
 
 const typeIcon = (type: string) => {
@@ -26,14 +28,81 @@ export default function SavingsPlans() {
   const [plans, setPlans] = useState<SavingsPlan[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const [error, setError] = useState(false)
+
+  // Modal state
+  const [activeModal, setActiveModal] = useState<{ type: 'deposit' | 'withdraw' | 'cancel'; plan: SavingsPlan } | null>(null)
+  const [amount, setAmount] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const loadPlans = () => {
+    setLoading(true)
+    setError(false)
     savingsApi.listPlans().then((res) => {
       setPlans(res.data.plans)
-    }).catch(console.error).finally(() => setLoading(false))
-  }, [])
+    }).catch((err: unknown) => {
+      showLoadError(err, 'savings plans')
+      setError(true)
+    }).finally(() => setLoading(false))
+  }
 
-  const formatAmount = (amount: string) =>
-    new Intl.NumberFormat('en-TZ', { minimumFractionDigits: 2 }).format(parseFloat(amount))
+  useEffect(() => { loadPlans() }, [])
+
+  const formatAmount = (amt: string) =>
+    new Intl.NumberFormat('en-TZ', { minimumFractionDigits: 2 }).format(parseFloat(amt))
+
+  const handleDeposit = async () => {
+    if (!activeModal || !amount || parseFloat(amount) <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await savingsApi.depositToPlan(activeModal.plan.id, parseFloat(amount))
+      toast.success(`Deposited TZS ${formatAmount(amount)} to ${activeModal.plan.name}`)
+      setActiveModal(null)
+      setAmount('')
+      loadPlans()
+    } catch (err: unknown) {
+      showError(err, 'Deposit failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleWithdraw = async () => {
+    if (!activeModal || !amount || parseFloat(amount) <= 0) {
+      toast.error('Enter a valid amount')
+      return
+    }
+    setSubmitting(true)
+    try {
+      await savingsApi.withdrawFromPlan(activeModal.plan.id, parseFloat(amount))
+      toast.success(`Withdrew TZS ${formatAmount(amount)} from ${activeModal.plan.name}`)
+      setActiveModal(null)
+      setAmount('')
+      loadPlans()
+    } catch (err: unknown) {
+      showError(err, 'Withdrawal failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleCancel = async () => {
+    if (!activeModal) return
+    setSubmitting(true)
+    try {
+      const res = await savingsApi.cancelPlan(activeModal.plan.id)
+      toast.success(res.data.message || 'Plan cancelled')
+      setActiveModal(null)
+      loadPlans()
+    } catch (err: unknown) {
+      showError(err, 'Cancellation failed')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -47,6 +116,11 @@ export default function SavingsPlans() {
       {loading ? (
         <div className="flex items-center justify-center h-32">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" />
+        </div>
+      ) : error ? (
+        <div className="card text-center py-12">
+          <p className="text-gray-600 mb-4">Failed to load savings plans</p>
+          <button onClick={loadPlans} className="btn-primary">Retry</button>
         </div>
       ) : plans.length === 0 ? (
         <div className="card text-center py-12">
@@ -67,7 +141,10 @@ export default function SavingsPlans() {
                   </div>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  plan.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  plan.status === 'active' ? 'bg-green-100 text-green-700' :
+                  plan.status === 'matured' ? 'bg-blue-100 text-blue-700' :
+                  plan.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-600'
                 }`}>
                   {plan.status}
                 </span>
@@ -100,9 +177,115 @@ export default function SavingsPlans() {
                     <span>Matures: {new Date(plan.maturity_date).toLocaleDateString()}</span>
                   )}
                 </div>
+
+                {/* Action buttons */}
+                {(plan.status === 'active' || plan.status === 'matured') && (
+                  <div className="flex gap-2 pt-3 border-t border-gray-200 mt-3">
+                    {plan.status === 'active' && (
+                      <button
+                        onClick={() => { setActiveModal({ type: 'deposit', plan }); setAmount('') }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                      >
+                        <ArrowDownCircle className="w-3.5 h-3.5" /> Deposit
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setActiveModal({ type: 'withdraw', plan }); setAmount('') }}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                    >
+                      <ArrowUpCircle className="w-3.5 h-3.5" /> Withdraw
+                    </button>
+                    {plan.status === 'active' && (
+                      <button
+                        onClick={() => setActiveModal({ type: 'cancel', plan })}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal overlay */}
+      {activeModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setActiveModal(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            {activeModal.type === 'cancel' ? (
+              <>
+                <h2 className="text-lg font-bold text-gray-900 mb-2">Cancel Plan</h2>
+                <p className="text-sm text-gray-600 mb-1">
+                  Are you sure you want to cancel <strong>{activeModal.plan.name}</strong>?
+                </p>
+                {parseFloat(activeModal.plan.current_amount) > 0 && (
+                  <p className="text-sm text-gray-600 mb-4">
+                    TZS {formatAmount(activeModal.plan.current_amount)} will be returned to your wallet.
+                  </p>
+                )}
+                {activeModal.plan.type === 'locked' && (
+                  <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded mb-4">
+                    Locked plans can only be cancelled after the maturity date.
+                  </p>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={() => setActiveModal(null)} className="flex-1 btn-secondary">
+                    Keep Plan
+                  </button>
+                  <button onClick={handleCancel} disabled={submitting} className="flex-1 bg-red-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-red-700 disabled:opacity-50">
+                    {submitting ? 'Cancelling...' : 'Yes, Cancel'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-bold text-gray-900 mb-1">
+                  {activeModal.type === 'deposit' ? 'Deposit to' : 'Withdraw from'} Plan
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">{activeModal.plan.name}</p>
+
+                <div className="mb-2">
+                  <p className="text-xs text-gray-500">Plan Balance</p>
+                  <p className="font-semibold">TZS {formatAmount(activeModal.plan.current_amount)}</p>
+                </div>
+
+                {activeModal.type === 'withdraw' && activeModal.plan.type === 'locked' && activeModal.plan.status === 'active' && (
+                  <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded mb-3">
+                    Locked plans can only be withdrawn after the maturity date.
+                  </p>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount (TZS)</label>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="input-field"
+                    placeholder="Enter amount"
+                    min={1}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setActiveModal(null)} className="flex-1 btn-secondary">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={activeModal.type === 'deposit' ? handleDeposit : handleWithdraw}
+                    disabled={submitting || !amount || parseFloat(amount) <= 0}
+                    className="flex-1 btn-primary disabled:opacity-50"
+                  >
+                    {submitting ? 'Processing...' : activeModal.type === 'deposit' ? 'Deposit' : 'Withdraw'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/client'
+import { showLoadError } from '../utils/error'
 
 interface TxnRow {
   id: string; user_id: string; phone: string; type: string; status: string;
@@ -20,7 +21,7 @@ export default function Transactions() {
         setTxns(res.data.transactions)
         setTotalPages(res.data.total_pages)
       })
-      .catch(console.error)
+      .catch((err: unknown) => showLoadError(err, 'transactions'))
       .finally(() => setLoading(false))
   }, [page, filterStatus])
 

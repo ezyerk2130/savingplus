@@ -6,6 +6,7 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/auth'
 import { useAuthStore } from '../store/authStore'
+import { showError } from '../utils/error'
 
 const schema = z.object({
   phone: z.string().min(10, 'Enter a valid phone number').max(15),
@@ -29,8 +30,8 @@ export default function Login() {
       setTokens(res.data.access_token, res.data.refresh_token)
       toast.success('Welcome back!')
       navigate('/dashboard')
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || err.response?.data?.error || 'Login failed')
+    } catch (err: unknown) {
+      showError(err, 'Login failed')
     } finally {
       setLoading(false)
     }

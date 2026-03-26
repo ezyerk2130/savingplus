@@ -9,46 +9,46 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/savingplus/backend/pkg/crypto"
+	"github.com/savingplus/backend/pkg/logger"
 )
 
-// bodyWriter captures the response body
 type bodyWriter struct {
 	gin.ResponseWriter
 	body *bytes.Buffer
 }
 
 func (w *bodyWriter) Write(b []byte) (int, error) {
-	w.body.Write(b)
+	if _, err := w.body.Write(b); err != nil {
+		logger.Ctx(&gin.Context{}).WithError(err).Warn("Failed to capture response body for audit")
+	}
 	return w.ResponseWriter.Write(b)
 }
 
 func AuditLog(db *sql.DB, hmacKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip audit for GET requests (read-only)
 		if c.Request.Method == http.MethodGet {
 			c.Next()
 			return
 		}
 
-		// Read and restore request body
 		var requestBody json.RawMessage
 		if c.Request.Body != nil {
-			bodyBytes, _ := io.ReadAll(c.Request.Body)
-			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-			// Sanitize sensitive fields before logging
-			requestBody = sanitizeBody(bodyBytes)
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			if err != nil {
+				logger.Ctx(c).WithError(err).Warn("Failed to read request body for audit")
+			} else {
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				requestBody = sanitizeBody(bodyBytes)
+			}
 		}
 
-		// Capture response
 		bw := &bodyWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
 		c.Writer = bw
 
 		c.Next()
 
-		// Determine actor
 		actorType := "system"
 		var actorID *string
 		if uid := c.GetString("user_id"); uid != "" {
@@ -60,30 +60,38 @@ func AuditLog(db *sql.DB, hmacKey string) gin.HandlerFunc {
 		}
 
 		action := c.Request.Method + " " + c.FullPath()
+		device := logger.DeviceName(c.Request.UserAgent())
 
 		entry := map[string]interface{}{
 			"actor_type":  actorType,
 			"action":      action,
 			"ip":          c.ClientIP(),
 			"user_agent":  c.Request.UserAgent(),
+			"device":      device,
 			"status_code": c.Writer.Status(),
 		}
 
-		// HMAC signature
-		entryJSON, _ := json.Marshal(entry)
+		entryJSON, err := json.Marshal(entry)
+		if err != nil {
+			logger.Ctx(c).WithError(err).Warn("Failed to marshal audit entry for HMAC")
+		}
+
 		signature := ""
-		if hmacKey != "" {
+		if hmacKey != "" && err == nil {
 			signature = crypto.HMACSign(string(entryJSON), hmacKey)
 		}
 
-		_, err := db.ExecContext(c,
-			`INSERT INTO audit_logs (id, actor_type, actor_id, action, ip_address, user_agent, request_body, response_status, hmac_signature)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		metadataJSON, _ := json.Marshal(map[string]string{"device": device})
+
+		_, dbErr := db.ExecContext(c,
+			`INSERT INTO audit_logs (id, actor_type, actor_id, action, ip_address, user_agent, request_body, response_status, hmac_signature, metadata)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 			uuid.New(), actorType, actorID, action, c.ClientIP(), c.Request.UserAgent(),
 			requestBody, c.Writer.Status(), signature,
+			json.RawMessage(metadataJSON),
 		)
-		if err != nil {
-			log.WithError(err).Error("Failed to write audit log")
+		if dbErr != nil {
+			logger.Ctx(c).WithError(dbErr).WithField("action", action).Error("Failed to write audit log - COMPLIANCE RISK")
 		}
 	}
 }
@@ -97,6 +105,7 @@ func sanitizeBody(body []byte) json.RawMessage {
 	sensitiveFields := map[string]bool{
 		"password": true, "pin": true, "otp": true, "otp_code": true,
 		"current_password": true, "new_password": true, "secret": true,
+		"new_pin": true, "mfa_code": true, "refresh_token": true,
 	}
 
 	for key := range data {
@@ -105,6 +114,9 @@ func sanitizeBody(body []byte) json.RawMessage {
 		}
 	}
 
-	sanitized, _ := json.Marshal(data)
+	sanitized, err := json.Marshal(data)
+	if err != nil {
+		return json.RawMessage("{}")
+	}
 	return sanitized
 }

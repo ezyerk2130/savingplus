@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -26,6 +27,7 @@ import (
 	"github.com/savingplus/backend/internal/user"
 	"github.com/savingplus/backend/internal/wallet"
 	"github.com/savingplus/backend/pkg/config"
+	"github.com/savingplus/backend/pkg/logger"
 )
 
 func main() {
@@ -46,6 +48,11 @@ func main() {
 		log.WithError(err).Fatal("Failed to connect to database")
 	}
 	defer db.Close()
+
+	// Run migrations on startup
+	if err := runMigrations(database); err != nil {
+		log.WithError(err).Warn("Migration check failed - ensure schema is up to date")
+	}
 
 	// Connect to Redis
 	rdb := redis.NewClient(&redis.Options{
@@ -69,21 +76,23 @@ func main() {
 	jwtSvc := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessTokenTTL, cfg.JWT.RefreshTokenTTL)
 	otpSvc := auth.NewOTPService(rdb, cfg.OTP.Length, cfg.OTP.TTL)
 
+	// Start Asynq worker and queue client
+	redisAddr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
+	queueClient := queue.NewClient(redisAddr)
+	defer queueClient.Close()
+	worker := queue.NewWorker(database, gw)
+	workerSrv := queue.StartWorkerServer(redisAddr, worker)
+	defer workerSrv.Stop()
+
 	// Initialize handlers
 	authHandler := auth.NewHandler(database, jwtSvc, otpSvc, cfg)
 	userHandler := user.NewHandler(database, cfg)
-	walletHandler := wallet.NewHandler(database, rdb, cfg)
+	walletHandler := wallet.NewHandler(database, rdb, queueClient, cfg)
 	txnHandler := transaction.NewHandler(database)
 	savingsHandler := savings.NewHandler(database)
 	notifHandler := notification.NewHandler(database, cfg)
 	webhookHandler := payment.NewWebhookHandler(database, gw)
 	adminHandler := admin.NewHandler(database, jwtSvc, cfg)
-
-	// Start Asynq worker
-	redisAddr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
-	worker := queue.NewWorker(database, gw)
-	workerSrv := queue.StartWorkerServer(redisAddr, worker)
-	defer workerSrv.Stop()
 
 	// Start scheduler for recurring jobs
 	scheduler := queue.StartScheduler(redisAddr)
@@ -102,6 +111,7 @@ func main() {
 	router.Use(middleware.CORS())
 	router.Use(middleware.SecurityHeaders())
 	router.Use(middleware.RequestID())
+	router.Use(logger.RequestLogger(logger.FilterLevel(cfg.Server.LogLevel)))
 	router.Use(middleware.RateLimit(rdb, cfg.Rate.PerSecond, cfg.Rate.PerMinute))
 
 	// Health check
@@ -133,6 +143,11 @@ func main() {
 		protected.Use(middleware.AuthRequired(jwtSvc))
 		protected.Use(middleware.AuditLog(database, cfg.JWT.Secret))
 		{
+			// Auth (authenticated)
+			protected.POST("/auth/change-password", authHandler.ChangePassword)
+			protected.POST("/auth/change-pin", authHandler.ChangePIN)
+			protected.POST("/auth/logout", authHandler.Logout)
+
 			// User profile
 			protected.GET("/profile", userHandler.GetProfile)
 			protected.PUT("/profile", userHandler.UpdateProfile)
@@ -151,6 +166,9 @@ func main() {
 			protected.POST("/savings/plan", savingsHandler.CreatePlan)
 			protected.GET("/savings/plans", savingsHandler.ListPlans)
 			protected.GET("/savings/plans/:id", savingsHandler.GetPlan)
+			protected.POST("/savings/plans/:id/deposit", savingsHandler.DepositToPlan)
+			protected.POST("/savings/plans/:id/withdraw", savingsHandler.WithdrawFromPlan)
+			protected.POST("/savings/plans/:id/cancel", savingsHandler.CancelPlan)
 
 			// KYC
 			protected.POST("/kyc/upload", userHandler.UploadKYCDocument)
@@ -166,10 +184,19 @@ func main() {
 	// ========================================
 	// ADMIN API SERVER
 	// ========================================
-	adminRouter := gin.New()
-	adminRouter.Use(gin.Recovery())
-	adminRouter.Use(middleware.CORS())
-	adminRouter.Use(middleware.SecurityHeaders())
+	// In single-port mode (Railway/production), mount admin on the same router.
+	// In dual-port mode (local dev), use a separate router on AdminPort.
+	singlePort := cfg.Server.Port == cfg.Server.AdminPort || cfg.Server.AdminPort == ""
+
+	adminRouter := router // default: same router
+	if !singlePort {
+		adminRouter = gin.New()
+		adminRouter.Use(gin.Recovery())
+		adminRouter.Use(middleware.CORS())
+		adminRouter.Use(middleware.SecurityHeaders())
+		adminRouter.Use(middleware.RequestID())
+		adminRouter.Use(logger.RequestLogger(logger.FilterLevel(cfg.Server.LogLevel)))
+	}
 
 	adminV1 := adminRouter.Group("/api/v1/admin")
 	{
@@ -190,8 +217,14 @@ func main() {
 			{
 				support.GET("/users/search", adminHandler.SearchUsers)
 				support.GET("/users/:id", adminHandler.GetUserDetail)
+				support.GET("/users/:id/transactions", adminHandler.GetUserTransactions)
 				support.POST("/users/:id/kyc/approve", adminHandler.ApproveKYC)
 				support.POST("/users/:id/kyc/reject", adminHandler.RejectKYC)
+				support.POST("/users/:id/unlock", adminHandler.UnlockAccount)
+				support.POST("/users/:id/suspend", adminHandler.SuspendAccount)
+				support.POST("/users/:id/reset-pin", adminHandler.ResetUserPIN)
+				support.GET("/kyc/pending", adminHandler.GetPendingKYC)
+				support.GET("/users/:id/kyc", adminHandler.GetUserKYCDocuments)
 			}
 
 			// Finance panel
@@ -199,6 +232,9 @@ func main() {
 			finance.Use(middleware.RequireRole("finance", "super_admin"))
 			{
 				finance.GET("/transactions", adminHandler.ListTransactions)
+				finance.GET("/transactions/unreconciled", adminHandler.GetUnreconciledTransactions)
+				finance.POST("/transactions/:id/reconcile", adminHandler.MarkTransactionReconciled)
+				finance.GET("/reconciliation/summary", adminHandler.GetReconciliationSummary)
 			}
 
 			// Super admin
@@ -206,9 +242,15 @@ func main() {
 			superAdmin.Use(middleware.RequireRole("super_admin"))
 			{
 				superAdmin.POST("/admins", adminHandler.CreateAdmin)
+				superAdmin.GET("/admins", adminHandler.ListAdmins)
+				superAdmin.POST("/admins/:id/deactivate", adminHandler.DeactivateAdmin)
+				superAdmin.POST("/admins/:id/reactivate", adminHandler.ReactivateAdmin)
 				superAdmin.GET("/audit-logs", adminHandler.GetAuditLogs)
 				superAdmin.GET("/feature-flags", adminHandler.GetFeatureFlags)
 				superAdmin.PUT("/feature-flags/:id", adminHandler.ToggleFeatureFlag)
+				superAdmin.GET("/tier-limits", adminHandler.GetTierLimits)
+				superAdmin.PUT("/tier-limits/:tier", adminHandler.UpdateTierLimits)
+				superAdmin.GET("/security-alerts", adminHandler.GetSecurityAlerts)
 			}
 		}
 	}
@@ -224,15 +266,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	adminServer := &http.Server{
-		Addr:         ":" + cfg.Server.AdminPort,
-		Handler:      adminRouter,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// Start servers
 	go func() {
 		log.WithField("port", cfg.Server.Port).Info("Customer API server starting")
 		if err := customerServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -240,14 +273,26 @@ func main() {
 		}
 	}()
 
-	go func() {
-		log.WithField("port", cfg.Server.AdminPort).Info("Admin API server starting")
-		if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.WithError(err).Fatal("Admin API server failed")
+	// In dual-port mode, start admin on separate port
+	var adminServer *http.Server
+	if !singlePort {
+		adminServer = &http.Server{
+			Addr:         ":" + cfg.Server.AdminPort,
+			Handler:      adminRouter,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  60 * time.Second,
 		}
-	}()
-
-	log.Infof("SavingPlus is running - Customer API on :%s, Admin API on :%s", cfg.Server.Port, cfg.Server.AdminPort)
+		go func() {
+			log.WithField("port", cfg.Server.AdminPort).Info("Admin API server starting")
+			if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.WithError(err).Fatal("Admin API server failed")
+			}
+		}()
+		log.Infof("SavingPlus is running - Customer API on :%s, Admin API on :%s", cfg.Server.Port, cfg.Server.AdminPort)
+	} else {
+		log.Infof("SavingPlus is running - all APIs on :%s (single-port mode)", cfg.Server.Port)
+	}
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -262,11 +307,25 @@ func main() {
 	if err := customerServer.Shutdown(ctx); err != nil {
 		log.WithError(err).Error("Customer server forced shutdown")
 	}
-	if err := adminServer.Shutdown(ctx); err != nil {
-		log.WithError(err).Error("Admin server forced shutdown")
+	if adminServer != nil {
+		if err := adminServer.Shutdown(ctx); err != nil {
+			log.WithError(err).Error("Admin server forced shutdown")
+		}
 	}
 
 	log.Info("SavingPlus server stopped")
+}
+
+func runMigrations(db *sql.DB) error {
+	migration, err := os.ReadFile("migrations/000001_init.up.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read migration file: %w", err)
+	}
+	if _, err := db.Exec(string(migration)); err != nil {
+		return fmt.Errorf("failed to execute migration: %w", err)
+	}
+	log.Info("Database migrations applied successfully")
+	return nil
 }
 
 func setupLogging(level string) {

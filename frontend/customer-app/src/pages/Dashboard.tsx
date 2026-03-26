@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, PiggyBank, Eye, EyeOff } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, PiggyBank, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
 import { walletApi, transactionApi, userApi } from '../api/services'
 import { useAuthStore } from '../store/authStore'
+import { showLoadError } from '../utils/error'
 import type { WalletBalance, Transaction, User } from '../types'
 
 export default function Dashboard() {
@@ -11,31 +12,45 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<User | null>(null)
   const [showBalance, setShowBalance] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const setUser = useAuthStore((s) => s.setUser)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [balRes, txnRes, profileRes] = await Promise.all([
-          walletApi.getBalance(),
-          transactionApi.list({ page_size: 5 }),
-          userApi.getProfile(),
-        ])
-        setBalance(balRes.data)
-        setRecentTxns(txnRes.data.transactions)
-        setProfile(profileRes.data)
-        setUser(profileRes.data)
-      } catch (err) {
-        console.error('Failed to load dashboard data', err)
-      } finally {
-        setLoading(false)
-      }
+  const loadDashboard = async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const [balRes, txnRes, profileRes] = await Promise.all([
+        walletApi.getBalance(),
+        transactionApi.list({ page_size: 5 }),
+        userApi.getProfile(),
+      ])
+      setBalance(balRes.data)
+      setRecentTxns(txnRes.data.transactions)
+      setProfile(profileRes.data)
+      setUser(profileRes.data)
+    } catch (err: unknown) {
+      showLoadError(err, 'dashboard data')
+      setError(true)
+    } finally {
+      setLoading(false)
     }
-    load()
+  }
+
+  useEffect(() => {
+    loadDashboard()
   }, [setUser])
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <p className="text-gray-600">Failed to load dashboard data</p>
+        <button onClick={loadDashboard} className="btn-primary">Retry</button>
+      </div>
+    )
   }
 
   const formatAmount = (amount: string) => {
@@ -114,36 +129,41 @@ export default function Dashboard() {
           <p className="text-gray-500 text-sm text-center py-8">No transactions yet</p>
         ) : (
           <div className="space-y-3">
-            {recentTxns.map((txn) => (
-              <div key={txn.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    txn.type === 'deposit' ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
-                    {txn.type === 'deposit' ? (
-                      <ArrowDownToLine className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <ArrowUpFromLine className="w-5 h-5 text-red-600" />
-                    )}
+            {recentTxns.map((txn) => {
+              const isIncoming = txn.type === 'deposit' || txn.type === 'savings_unlock' || txn.type === 'interest'
+              const isSavings = txn.type === 'savings_lock' || txn.type === 'savings_unlock'
+              return (
+                <div key={txn.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isSavings ? 'bg-purple-100' : isIncoming ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
+                      {txn.type === 'savings_lock' ? <Lock className="w-5 h-5 text-purple-600" /> :
+                       txn.type === 'savings_unlock' ? <Unlock className="w-5 h-5 text-purple-600" /> :
+                       isIncoming ? <ArrowDownToLine className="w-5 h-5 text-green-600" /> :
+                       <ArrowUpFromLine className="w-5 h-5 text-red-600" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium capitalize">{txn.type.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-gray-500">{new Date(txn.created_at).toLocaleDateString()}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium capitalize">{txn.type}</p>
-                    <p className="text-xs text-gray-500">{new Date(txn.created_at).toLocaleDateString()}</p>
+                  <div className="text-right">
+                    <p className={`text-sm font-semibold ${
+                      isSavings ? 'text-purple-600' : isIncoming ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {isIncoming ? '+' : '-'}TZS {formatAmount(txn.amount)}
+                    </p>
+                    <p className={`text-xs capitalize ${
+                      txn.status === 'completed' ? 'text-green-500' :
+                      txn.status === 'failed' ? 'text-red-500' : 'text-amber-500'
+                    }`}>
+                      {txn.status}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`text-sm font-semibold ${txn.type === 'deposit' ? 'text-green-600' : 'text-red-600'}`}>
-                    {txn.type === 'deposit' ? '+' : '-'}TZS {formatAmount(txn.amount)}
-                  </p>
-                  <p className={`text-xs capitalize ${
-                    txn.status === 'completed' ? 'text-green-500' :
-                    txn.status === 'failed' ? 'text-red-500' : 'text-amber-500'
-                  }`}>
-                    {txn.status}
-                  </p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

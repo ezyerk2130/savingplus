@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Upload, CheckCircle, XCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { kycApi } from '../api/services'
+import { showError, showLoadError } from '../utils/error'
 import type { KYCStatus } from '../types'
 
 const documentTypes = [
@@ -20,7 +21,7 @@ export default function KYCUpload() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    kycApi.getStatus().then((res) => setKycStatus(res.data)).catch(console.error)
+    kycApi.getStatus().then((res) => setKycStatus(res.data)).catch((err: unknown) => showLoadError(err, 'KYC status'))
   }, [])
 
   const handleUpload = async () => {
@@ -45,8 +46,8 @@ export default function KYCUpload() {
       const res = await kycApi.getStatus()
       setKycStatus(res.data)
       if (fileRef.current) fileRef.current.value = ''
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Upload failed')
+    } catch (err: unknown) {
+      showError(err, 'Upload failed')
     } finally {
       setUploading(false)
     }

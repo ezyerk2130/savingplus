@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { authApi } from '../api/auth'
+import { showError } from '../utils/error'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -37,8 +38,8 @@ export default function Register() {
       })
       toast.success('Registration successful! Please log in.')
       navigate('/login')
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || err.response?.data?.error || 'Registration failed')
+    } catch (err: unknown) {
+      showError(err, 'Registration failed')
     } finally {
       setLoading(false)
     }

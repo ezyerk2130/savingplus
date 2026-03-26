@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import api from '../api/client'
+import { showError, showLoadError } from '../utils/error'
 
 interface Flag {
   id: string; name: string; description?: string; enabled: boolean;
@@ -14,7 +15,7 @@ export default function FeatureFlags() {
   useEffect(() => {
     api.get('/feature-flags')
       .then((res) => setFlags(res.data.feature_flags))
-      .catch(console.error)
+      .catch((err: unknown) => showLoadError(err, 'feature flags'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -23,8 +24,8 @@ export default function FeatureFlags() {
       await api.put(`/feature-flags/${id}`, { enabled: !enabled })
       setFlags((prev) => prev.map((f) => f.id === id ? { ...f, enabled: !enabled } : f))
       toast.success(`Flag ${!enabled ? 'enabled' : 'disabled'}`)
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to toggle flag')
+    } catch (err: unknown) {
+      showError(err, 'Failed to toggle flag')
     }
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bell, Check, CheckCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { notificationApi } from '../api/services'
+import { showLoadError } from '../utils/error'
 import type { Notification } from '../types'
 
 export default function Notifications() {
@@ -18,8 +19,8 @@ export default function Notifications() {
       const res = await notificationApi.list()
       setNotifications(res.data.notifications)
       setUnreadCount(res.data.unread_count)
-    } catch (err) {
-      console.error(err)
+    } catch (err: unknown) {
+      showLoadError(err, 'notifications')
     } finally {
       setLoading(false)
     }
@@ -32,8 +33,8 @@ export default function Notifications() {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       )
       setUnreadCount((c) => Math.max(0, c - 1))
-    } catch (err) {
-      toast.error('Failed to mark as read')
+    } catch (err: unknown) {
+      showLoadError(err, 'marking notification as read')
     }
   }
 
@@ -43,8 +44,8 @@ export default function Notifications() {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
       setUnreadCount(0)
       toast.success('All marked as read')
-    } catch (err) {
-      toast.error('Failed to mark all as read')
+    } catch (err: unknown) {
+      showLoadError(err, 'marking all notifications as read')
     }
   }
 

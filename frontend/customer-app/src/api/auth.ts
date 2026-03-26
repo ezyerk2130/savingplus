@@ -16,4 +16,13 @@ export const authApi = {
 
   sendOtp: (phone: string) =>
     api.post('/auth/send-otp', { phone }),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    api.post('/auth/change-password', data),
+
+  changePIN: (data: { current_pin: string; new_pin: string }) =>
+    api.post('/auth/change-pin', data),
+
+  logout: (refresh_token: string) =>
+    api.post('/auth/logout', { refresh_token }),
 }

@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 
 	apperr "github.com/savingplus/backend/internal/errors"
 	"github.com/savingplus/backend/pkg/config"
+	"github.com/savingplus/backend/pkg/logger"
 )
 
 type Handler struct {
@@ -37,6 +37,8 @@ type UpdateProfileRequest struct {
 }
 
 func (h *Handler) GetProfile(c *gin.Context) {
+	log := logger.Ctx(c)
+
 	userID := c.GetString("user_id")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": apperr.ErrUnauthorized.Message})
@@ -55,7 +57,7 @@ func (h *Handler) GetProfile(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		log.WithError(err).Error("Failed to get user profile")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to get user profile")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -68,6 +70,8 @@ func (h *Handler) GetProfile(c *gin.Context) {
 }
 
 func (h *Handler) UpdateProfile(c *gin.Context) {
+	log := logger.Ctx(c)
+
 	userID := c.GetString("user_id")
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": apperr.ErrUnauthorized.Message})
@@ -86,7 +90,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 			req.FullName, userID,
 		)
 		if err != nil {
-			log.WithError(err).Error("Failed to update full name")
+			log.WithError(err).WithField("user_id", userID).Error("Failed to update full name")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 			return
 		}
@@ -98,7 +102,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 			req.Email, userID,
 		)
 		if err != nil {
-			log.WithError(err).Error("Failed to update email")
+			log.WithError(err).WithField("user_id", userID).Error("Failed to update email")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 			return
 		}
@@ -108,12 +112,14 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 }
 
 func (h *Handler) GetTierLimits(c *gin.Context) {
+	log := logger.Ctx(c)
+
 	userID := c.GetString("user_id")
 
 	var kycTier int
 	err := h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
 	if err != nil {
-		log.WithError(err).Error("Failed to get user KYC tier")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to get user KYC tier")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}
@@ -130,7 +136,7 @@ func (h *Handler) GetTierLimits(c *gin.Context) {
 		kycTier,
 	).Scan(&limits.DailyDeposit, &limits.DailyWithdrawal, &limits.MaxBalance, &limits.Description)
 	if err != nil {
-		log.WithError(err).Error("Failed to get tier limits")
+		log.WithError(err).WithField("user_id", userID).Error("Failed to get tier limits")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
 		return
 	}

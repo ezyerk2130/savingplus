@@ -2,28 +2,32 @@ package wallet
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	log "github.com/sirupsen/logrus"
 
 	apperr "github.com/savingplus/backend/internal/errors"
+	"github.com/savingplus/backend/internal/queue"
 	"github.com/savingplus/backend/pkg/config"
+	"github.com/savingplus/backend/pkg/crypto"
+	"github.com/savingplus/backend/pkg/logger"
+	"github.com/savingplus/backend/pkg/response"
 )
 
 type Handler struct {
 	db    *sql.DB
 	redis *redis.Client
+	queue *queue.Client
 	cfg   *config.Config
 }
 
-func NewHandler(db *sql.DB, rdb *redis.Client, cfg *config.Config) *Handler {
-	return &Handler{db: db, redis: rdb, cfg: cfg}
+func NewHandler(db *sql.DB, rdb *redis.Client, queueClient *queue.Client, cfg *config.Config) *Handler {
+	return &Handler{db: db, redis: rdb, queue: queueClient, cfg: cfg}
 }
 
 type BalanceResponse struct {
@@ -51,7 +55,9 @@ type WithdrawRequest struct {
 }
 
 func (h *Handler) GetBalance(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
+	log = log.WithField("user_id", userID)
 
 	var resp BalanceResponse
 	var available, locked float64
@@ -65,15 +71,17 @@ func (h *Handler) GetBalance(c *gin.Context) {
 		return
 	}
 
-	resp.AvailableBalance = fmt.Sprintf("%.2f", available)
-	resp.LockedBalance = fmt.Sprintf("%.2f", locked)
-	resp.TotalBalance = fmt.Sprintf("%.2f", available+locked)
+	resp.AvailableBalance = response.FormatMoney(available)
+	resp.LockedBalance = response.FormatMoney(locked)
+	resp.TotalBalance = response.FormatMoney(available + locked)
 
 	c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) Deposit(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
+	log = log.WithField("user_id", userID)
 
 	var req DepositRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -84,11 +92,17 @@ func (h *Handler) Deposit(c *gin.Context) {
 	// Check idempotency
 	idemKey := fmt.Sprintf("idempotency:%s", req.IdempotencyKey)
 	exists, err := h.redis.Exists(c, idemKey).Result()
-	if err == nil && exists > 0 {
+	if err != nil {
+		log.WithError(err).Warn("Redis error during idempotency check, continuing request")
+	} else if exists > 0 {
 		// Return cached response
-		cached, _ := h.redis.Get(c, idemKey).Result()
-		c.Data(http.StatusOK, "application/json", []byte(cached))
-		return
+		cached, err := h.redis.Get(c, idemKey).Result()
+		if err != nil {
+			log.WithError(err).Warn("Redis error fetching cached idempotency response")
+		} else {
+			c.Data(http.StatusOK, "application/json", []byte(cached))
+			return
+		}
 	}
 
 	// Check tier limits
@@ -110,11 +124,17 @@ func (h *Handler) Deposit(c *gin.Context) {
 	txnID := uuid.New()
 	ref := fmt.Sprintf("DEP-%s-%d", txnID.String()[:8], time.Now().UnixMilli())
 
+	metadata, err := json.Marshal(map[string]string{"payment_method": req.PaymentMethod, "phone_number": req.PhoneNumber})
+	if err != nil {
+		log.WithError(err).Error("Failed to marshal deposit metadata")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
 	_, err = h.db.ExecContext(c,
 		`INSERT INTO transactions (id, user_id, wallet_id, type, status, amount, reference, idempotency_key, metadata)
 		 VALUES ($1, $2, $3, 'deposit', 'pending', $4, $5, $6, $7)`,
-		txnID, userID, walletID, req.Amount, ref, req.IdempotencyKey,
-		fmt.Sprintf(`{"payment_method":"%s","phone_number":"%s"}`, req.PaymentMethod, req.PhoneNumber),
+		txnID, userID, walletID, req.Amount, ref, req.IdempotencyKey, metadata,
 	)
 	if err != nil {
 		log.WithError(err).Error("Failed to create deposit transaction")
@@ -122,10 +142,19 @@ func (h *Handler) Deposit(c *gin.Context) {
 		return
 	}
 
-	// TODO: Enqueue async payment job via Asynq
-	// queue.EnqueueDeposit(txnID, req.PaymentMethod, req.PhoneNumber, req.Amount)
+	// Enqueue async payment job
+	if err := h.queue.EnqueueDeposit(queue.PaymentPayload{
+		TransactionID: txnID.String(),
+		PhoneNumber:   req.PhoneNumber,
+		Amount:        req.Amount,
+		Currency:      "TZS",
+		Reference:     ref,
+		PaymentMethod: req.PaymentMethod,
+	}); err != nil {
+		log.WithError(err).Error("Failed to enqueue deposit job")
+	}
 
-	response := gin.H{
+	resp := gin.H{
 		"transaction_id": txnID.String(),
 		"reference":      ref,
 		"status":         "pending",
@@ -133,13 +162,17 @@ func (h *Handler) Deposit(c *gin.Context) {
 	}
 
 	// Cache response for idempotency (24h)
-	h.redis.Set(c, idemKey, fmt.Sprintf(`{"transaction_id":"%s","reference":"%s","status":"pending"}`, txnID, ref), 24*time.Hour)
+	if err := h.redis.Set(c, idemKey, fmt.Sprintf(`{"transaction_id":"%s","reference":"%s","status":"pending"}`, txnID, ref), 24*time.Hour).Err(); err != nil {
+		log.WithError(err).Warn("Redis error caching idempotency response")
+	}
 
-	c.JSON(http.StatusAccepted, response)
+	c.JSON(http.StatusAccepted, resp)
 }
 
 func (h *Handler) Withdraw(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
+	log = log.WithField("user_id", userID)
 
 	var req WithdrawRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -150,10 +183,16 @@ func (h *Handler) Withdraw(c *gin.Context) {
 	// Check idempotency
 	idemKey := fmt.Sprintf("idempotency:%s", req.IdempotencyKey)
 	exists, err := h.redis.Exists(c, idemKey).Result()
-	if err == nil && exists > 0 {
-		cached, _ := h.redis.Get(c, idemKey).Result()
-		c.Data(http.StatusOK, "application/json", []byte(cached))
-		return
+	if err != nil {
+		log.WithError(err).Warn("Redis error during idempotency check, continuing request")
+	} else if exists > 0 {
+		cached, err := h.redis.Get(c, idemKey).Result()
+		if err != nil {
+			log.WithError(err).Warn("Redis error fetching cached idempotency response")
+		} else {
+			c.Data(http.StatusOK, "application/json", []byte(cached))
+			return
+		}
 	}
 
 	// Verify PIN
@@ -162,6 +201,12 @@ func (h *Handler) Withdraw(c *gin.Context) {
 	if err != nil {
 		log.WithError(err).Error("Failed to get user PIN")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	if !crypto.VerifyPassword(req.PIN, pinHash) {
+		log.Warn("Invalid PIN for withdrawal")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid transaction PIN"})
 		return
 	}
 
@@ -180,7 +225,12 @@ func (h *Handler) Withdraw(c *gin.Context) {
 
 	// Check KYC status (withdrawals require at least tier 1)
 	var kycTier int
-	h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	err = h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	if err != nil {
+		log.WithError(err).Error("Failed to get KYC tier")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
 	if kycTier < 1 {
 		c.JSON(http.StatusForbidden, gin.H{"error": apperr.ErrKYCRequired.Message, "detail": "KYC verification required for withdrawals"})
 		return
@@ -214,11 +264,17 @@ func (h *Handler) Withdraw(c *gin.Context) {
 	txnID := uuid.New()
 	ref := fmt.Sprintf("WDR-%s-%d", txnID.String()[:8], time.Now().UnixMilli())
 
+	metadata, err := json.Marshal(map[string]string{"payment_method": req.PaymentMethod, "phone_number": req.PhoneNumber})
+	if err != nil {
+		log.WithError(err).Error("Failed to marshal withdrawal metadata")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
 	_, err = h.db.ExecContext(c,
 		`INSERT INTO transactions (id, user_id, wallet_id, type, status, amount, reference, idempotency_key, metadata)
 		 VALUES ($1, $2, $3, 'withdrawal', 'pending', $4, $5, $6, $7)`,
-		txnID, userID, walletID, req.Amount, ref, req.IdempotencyKey,
-		fmt.Sprintf(`{"payment_method":"%s","phone_number":"%s"}`, req.PaymentMethod, req.PhoneNumber),
+		txnID, userID, walletID, req.Amount, ref, req.IdempotencyKey, metadata,
 	)
 	if err != nil {
 		log.WithError(err).Error("Failed to create withdrawal transaction")
@@ -226,36 +282,56 @@ func (h *Handler) Withdraw(c *gin.Context) {
 		return
 	}
 
-	// TODO: Enqueue async payment job
-	// queue.EnqueueWithdrawal(txnID, req.PaymentMethod, req.PhoneNumber, req.Amount)
+	// Enqueue async payment job
+	if err := h.queue.EnqueueWithdrawal(queue.PaymentPayload{
+		TransactionID: txnID.String(),
+		PhoneNumber:   req.PhoneNumber,
+		Amount:        req.Amount,
+		Currency:      "TZS",
+		Reference:     ref,
+		PaymentMethod: req.PaymentMethod,
+	}); err != nil {
+		log.WithError(err).Error("Failed to enqueue withdrawal job")
+	}
 
-	response := gin.H{
+	resp := gin.H{
 		"transaction_id": txnID.String(),
 		"reference":      ref,
 		"status":         "pending",
 		"message":        "Withdrawal initiated. You will receive the money shortly.",
 	}
 
-	h.redis.Set(c, idemKey, fmt.Sprintf(`{"transaction_id":"%s","reference":"%s","status":"pending"}`, txnID, ref), 24*time.Hour)
+	if err := h.redis.Set(c, idemKey, fmt.Sprintf(`{"transaction_id":"%s","reference":"%s","status":"pending"}`, txnID, ref), 24*time.Hour).Err(); err != nil {
+		log.WithError(err).Warn("Redis error caching idempotency response")
+	}
 
-	c.JSON(http.StatusAccepted, response)
+	c.JSON(http.StatusAccepted, resp)
 }
 
 func (h *Handler) checkDepositLimits(c *gin.Context, userID string, amount float64) error {
 	var kycTier int
-	h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	err := h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	if err != nil {
+		return fmt.Errorf("failed to get KYC tier: %w", err)
+	}
 
 	var dailyLimit float64
-	h.db.QueryRowContext(c, `SELECT daily_deposit_limit FROM tier_limits WHERE kyc_tier = $1`, kycTier).Scan(&dailyLimit)
+	err = h.db.QueryRowContext(c, `SELECT daily_deposit_limit FROM tier_limits WHERE kyc_tier = $1`, kycTier).Scan(&dailyLimit)
+	if err != nil {
+		return fmt.Errorf("failed to get deposit limit for tier %d: %w", kycTier, err)
+	}
 
 	// Get today's total deposits
 	var todayTotal float64
-	h.db.QueryRowContext(c,
+	err = h.db.QueryRowContext(c,
 		`SELECT COALESCE(SUM(amount), 0) FROM transactions
 		 WHERE user_id = $1 AND type = 'deposit' AND status IN ('pending', 'completed')
 		 AND created_at >= CURRENT_DATE`,
 		userID,
 	).Scan(&todayTotal)
+	if err != nil {
+		return fmt.Errorf("failed to get today's deposit total: %w", err)
+	}
 
 	if todayTotal+amount > dailyLimit {
 		return fmt.Errorf("deposit would exceed daily limit of TZS %.2f (today's total: TZS %.2f)", dailyLimit, todayTotal)
@@ -266,18 +342,27 @@ func (h *Handler) checkDepositLimits(c *gin.Context, userID string, amount float
 
 func (h *Handler) checkWithdrawalLimits(c *gin.Context, userID string, amount float64) error {
 	var kycTier int
-	h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	err := h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	if err != nil {
+		return fmt.Errorf("failed to get KYC tier: %w", err)
+	}
 
 	var dailyLimit float64
-	h.db.QueryRowContext(c, `SELECT daily_withdrawal_limit FROM tier_limits WHERE kyc_tier = $1`, kycTier).Scan(&dailyLimit)
+	err = h.db.QueryRowContext(c, `SELECT daily_withdrawal_limit FROM tier_limits WHERE kyc_tier = $1`, kycTier).Scan(&dailyLimit)
+	if err != nil {
+		return fmt.Errorf("failed to get withdrawal limit for tier %d: %w", kycTier, err)
+	}
 
 	var todayTotal float64
-	h.db.QueryRowContext(c,
+	err = h.db.QueryRowContext(c,
 		`SELECT COALESCE(SUM(amount), 0) FROM transactions
 		 WHERE user_id = $1 AND type = 'withdrawal' AND status IN ('pending', 'completed')
 		 AND created_at >= CURRENT_DATE`,
 		userID,
 	).Scan(&todayTotal)
+	if err != nil {
+		return fmt.Errorf("failed to get today's withdrawal total: %w", err)
+	}
 
 	if todayTotal+amount > dailyLimit {
 		return fmt.Errorf("withdrawal would exceed daily limit of TZS %.2f (today's total: TZS %.2f)", dailyLimit, todayTotal)
@@ -285,90 +370,3 @@ func (h *Handler) checkWithdrawalLimits(c *gin.Context, userID string, amount fl
 
 	return nil
 }
-
-// CreditWallet performs a double-entry credit to a user's wallet
-func CreditWallet(db *sql.DB, ctx *gin.Context, walletID, txnID string, amount float64, description string) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// Lock wallet row for update
-	var balance float64
-	err = tx.QueryRowContext(ctx,
-		`SELECT available_balance FROM wallets WHERE id = $1 FOR UPDATE`,
-		walletID,
-	).Scan(&balance)
-	if err != nil {
-		return err
-	}
-
-	newBalance := balance + amount
-
-	_, err = tx.ExecContext(ctx,
-		`UPDATE wallets SET available_balance = $1 WHERE id = $2`,
-		newBalance, walletID,
-	)
-	if err != nil {
-		return err
-	}
-
-	// Create ledger entry
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO ledger_entries (id, transaction_id, wallet_id, entry_type, amount, balance_after, description)
-		 VALUES ($1, $2, $3, 'credit', $4, $5, $6)`,
-		uuid.New(), txnID, walletID, amount, newBalance, description,
-	)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// DebitWallet performs a double-entry debit from a user's wallet
-func DebitWallet(db *sql.DB, ctx *gin.Context, walletID, txnID string, amount float64, description string) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	var balance float64
-	err = tx.QueryRowContext(ctx,
-		`SELECT available_balance FROM wallets WHERE id = $1 FOR UPDATE`,
-		walletID,
-	).Scan(&balance)
-	if err != nil {
-		return err
-	}
-
-	if balance < amount {
-		return fmt.Errorf("insufficient balance")
-	}
-
-	newBalance := balance - amount
-
-	_, err = tx.ExecContext(ctx,
-		`UPDATE wallets SET available_balance = $1 WHERE id = $2`,
-		newBalance, walletID,
-	)
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO ledger_entries (id, transaction_id, wallet_id, entry_type, amount, balance_after, description)
-		 VALUES ($1, $2, $3, 'debit', $4, $5, $6)`,
-		uuid.New(), txnID, walletID, amount, newBalance, description,
-	)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-// unused import guard
-var _ = strconv.Itoa

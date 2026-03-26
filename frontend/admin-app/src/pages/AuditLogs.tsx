@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../api/client'
+import { showLoadError } from '../utils/error'
 
 interface AuditEntry {
   id: string; actor_type: string; actor_id?: string; action: string;
@@ -9,13 +10,17 @@ interface AuditEntry {
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditEntry[]>([])
   const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
     api.get('/audit-logs', { params: { page } })
-      .then((res) => setLogs(res.data.audit_logs))
-      .catch(console.error)
+      .then((res) => {
+        setLogs(res.data.audit_logs)
+        setTotalPages(res.data.total_pages || 1)
+      })
+      .catch((err: unknown) => showLoadError(err, 'audit logs'))
       .finally(() => setLoading(false))
   }, [page])
 
@@ -26,6 +31,8 @@ export default function AuditLogs() {
       <div className="card p-0 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-32"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600" /></div>
+        ) : logs.length === 0 ? (
+          <p className="text-center text-gray-500 py-12">No audit logs found</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
@@ -61,11 +68,13 @@ export default function AuditLogs() {
         )}
       </div>
 
-      <div className="flex justify-center gap-4 mt-4">
-        <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="btn-secondary">Prev</button>
-        <span className="self-center text-sm text-gray-600">Page {page}</span>
-        <button onClick={() => setPage(page + 1)} className="btn-secondary">Next</button>
-      </div>
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-4 mt-4">
+          <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="btn-secondary">Prev</button>
+          <span className="self-center text-sm text-gray-600">Page {page}/{totalPages}</span>
+          <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="btn-secondary">Next</button>
+        </div>
+      )}
     </div>
   )
 }

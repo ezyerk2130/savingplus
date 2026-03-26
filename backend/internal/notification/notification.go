@@ -10,6 +10,8 @@ import (
 
 	apperr "github.com/savingplus/backend/internal/errors"
 	"github.com/savingplus/backend/pkg/config"
+	"github.com/savingplus/backend/pkg/logger"
+	"github.com/savingplus/backend/pkg/response"
 )
 
 type Handler struct {
@@ -31,6 +33,7 @@ type NotificationResponse struct {
 }
 
 func (h *Handler) ListNotifications(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
 
 	rows, err := h.db.QueryContext(c,
@@ -49,26 +52,27 @@ func (h *Handler) ListNotifications(c *gin.Context) {
 	for rows.Next() {
 		var n NotificationResponse
 		if err := rows.Scan(&n.ID, &n.Type, &n.Title, &n.Message, &n.Read, &n.CreatedAt); err != nil {
+			log.WithError(err).Error("Failed to scan notification row")
 			continue
 		}
 		notifs = append(notifs, n)
 	}
 
-	if notifs == nil {
-		notifs = []NotificationResponse{}
-	}
-
 	// Count unread
 	var unread int
-	h.db.QueryRowContext(c, `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = FALSE`, userID).Scan(&unread)
+	if err := h.db.QueryRowContext(c, `SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = FALSE`, userID).Scan(&unread); err != nil {
+		log.WithError(err).Warn("Failed to query unread count, defaulting to 0")
+		unread = 0
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"notifications": notifs,
+		"notifications": response.EmptySlice(notifs),
 		"unread_count":  unread,
 	})
 }
 
 func (h *Handler) MarkRead(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
 	notifID := c.Param("id")
 
@@ -82,7 +86,12 @@ func (h *Handler) MarkRead(c *gin.Context) {
 		return
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		log.WithError(err).Error("Failed to get rows affected")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
 	if rows == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": apperr.ErrNotFound.Message})
 		return
@@ -92,6 +101,7 @@ func (h *Handler) MarkRead(c *gin.Context) {
 }
 
 func (h *Handler) MarkAllRead(c *gin.Context) {
+	log := logger.Ctx(c)
 	userID := c.GetString("user_id")
 
 	_, err := h.db.ExecContext(c,
@@ -113,6 +123,12 @@ func CreateNotification(db *sql.DB, userID, notifType, title, message string) er
 		`INSERT INTO notifications (id, user_id, type, title, message) VALUES ($1, $2, $3, $4, $5)`,
 		uuid.New(), userID, notifType, title, message,
 	)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"user_id":    userID,
+			"notif_type": notifType,
+		}).WithError(err).Error("Failed to create notification")
+	}
 	return err
 }
 

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { Shield } from 'lucide-react'
 import api from '../api/client'
+import { showError } from '../utils/error'
 import { useAdminAuth } from '../store/authStore'
 
 const schema = z.object({
@@ -31,8 +32,8 @@ export default function Login() {
       setAuth(res.data.access_token, res.data.role)
       toast.success('Welcome, admin!')
       navigate('/dashboard')
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Login failed')
+    } catch (err: unknown) {
+      showError(err, 'Login failed')
     } finally {
       setLoading(false)
     }

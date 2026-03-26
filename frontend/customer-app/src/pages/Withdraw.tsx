@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { walletApi } from '../api/services'
+import { showError, showLoadError } from '../utils/error'
 import type { WalletBalance } from '../types'
 
 const schema = z.object({
@@ -28,24 +29,30 @@ export default function Withdraw() {
   })
 
   useEffect(() => {
-    walletApi.getBalance().then((res) => setBalance(res.data)).catch(() => {})
+    walletApi.getBalance().then((res) => setBalance(res.data)).catch((err: unknown) => showLoadError(err, 'balance'))
   }, [])
 
   const onSubmit = async (data: FormData) => {
+    if (needsOtp && (!data.otp_code || data.otp_code.length !== 6)) {
+      toast.error('Please enter the 6-digit OTP code')
+      return
+    }
     setLoading(true)
     try {
       const idempotencyKey = crypto.randomUUID()
       await walletApi.withdraw({ ...data, idempotency_key: idempotencyKey })
       toast.success('Withdrawal initiated! You will receive the money shortly.')
       navigate('/transactions')
-    } catch (err: any) {
-      const error = err.response?.data
-      if (error?.error === 'stepup_required') {
-        setNeedsOtp(true)
-        toast('Please enter OTP sent to your phone for this high-value withdrawal')
-      } else {
-        toast.error(error?.detail || error?.error || 'Withdrawal failed')
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'response' in err) {
+        const error = (err as any).response?.data
+        if (error?.error === 'stepup_required') {
+          setNeedsOtp(true)
+          toast('Please enter OTP sent to your phone for this high-value withdrawal')
+          return
+        }
       }
+      showError(err, 'Withdrawal failed')
     } finally {
       setLoading(false)
     }

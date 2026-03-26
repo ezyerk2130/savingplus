@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
 import { walletApi } from '../api/services'
+import { showError } from '../utils/error'
 
 const schema = z.object({
   amount: z.number({ coerce: true }).positive('Amount must be greater than 0').min(1000, 'Minimum deposit is TZS 1,000'),
@@ -39,8 +40,8 @@ export default function Deposit() {
       })
       toast.success('Deposit initiated! Check your phone for the mobile money prompt.')
       navigate('/transactions')
-    } catch (err: any) {
-      toast.error(err.response?.data?.detail || err.response?.data?.error || 'Deposit failed')
+    } catch (err: unknown) {
+      showError(err, 'Deposit failed')
     } finally {
       setLoading(false)
     }

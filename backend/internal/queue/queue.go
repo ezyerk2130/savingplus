@@ -28,7 +28,6 @@ type PaymentPayload struct {
 	PaymentMethod string  `json:"payment_method"`
 }
 
-// Client wraps asynq client for enqueuing tasks
 type Client struct {
 	client *asynq.Client
 }
@@ -44,20 +43,25 @@ func (c *Client) Close() {
 }
 
 func (c *Client) EnqueueDeposit(payload PaymentPayload) error {
-	data, _ := json.Marshal(payload)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal deposit payload: %w", err)
+	}
 	task := asynq.NewTask(TypeProcessDeposit, data)
-	_, err := c.client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(30*time.Second))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(30*time.Second))
 	return err
 }
 
 func (c *Client) EnqueueWithdrawal(payload PaymentPayload) error {
-	data, _ := json.Marshal(payload)
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal withdrawal payload: %w", err)
+	}
 	task := asynq.NewTask(TypeProcessWithdrawal, data)
-	_, err := c.client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(30*time.Second))
+	_, err = c.client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(30*time.Second))
 	return err
 }
 
-// Worker processes async payment tasks
 type Worker struct {
 	db      *sql.DB
 	gateway payment.PaymentGateway
@@ -67,20 +71,28 @@ func NewWorker(db *sql.DB, gw payment.PaymentGateway) *Worker {
 	return &Worker{db: db, gateway: gw}
 }
 
-func (w *Worker) HandleDepositTask(ctx context.Context, t *asynq.Task) error {
-	var p PaymentPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
-	}
-
-	log.WithFields(log.Fields{
+func txnLog(p PaymentPayload) *log.Entry {
+	return log.WithFields(log.Fields{
 		"transaction_id": p.TransactionID,
 		"amount":         p.Amount,
 		"phone":          p.PhoneNumber,
-	}).Info("Processing deposit payment")
+		"reference":      p.Reference,
+		"payment_method": p.PaymentMethod,
+	})
+}
 
-	// Update transaction to processing
-	w.db.ExecContext(ctx, `UPDATE transactions SET status = 'processing' WHERE id = $1`, p.TransactionID)
+func (w *Worker) HandleDepositTask(ctx context.Context, t *asynq.Task) error {
+	var p PaymentPayload
+	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		return fmt.Errorf("failed to unmarshal deposit payload: %w", err)
+	}
+
+	l := txnLog(p)
+	l.Info("Processing deposit payment")
+
+	if _, err := w.db.ExecContext(ctx, `UPDATE transactions SET status = 'processing' WHERE id = $1`, p.TransactionID); err != nil {
+		l.WithError(err).Warn("Failed to update transaction to processing, continuing with gateway call")
+	}
 
 	resp, err := w.gateway.InitiateDeposit(ctx, payment.DepositRequest{
 		TransactionID: p.TransactionID,
@@ -90,31 +102,33 @@ func (w *Worker) HandleDepositTask(ctx context.Context, t *asynq.Task) error {
 		Reference:     p.Reference,
 	})
 	if err != nil {
-		log.WithError(err).Error("Gateway deposit failed")
-		w.db.ExecContext(ctx, `UPDATE transactions SET status = 'failed' WHERE id = $1`, p.TransactionID)
+		l.WithError(err).Error("Gateway deposit initiation failed")
+		if _, dbErr := w.db.ExecContext(ctx, `UPDATE transactions SET status = 'failed' WHERE id = $1`, p.TransactionID); dbErr != nil {
+			l.WithError(dbErr).Error("Failed to mark transaction as failed after gateway error")
+		}
 		return err
 	}
 
-	// Store gateway reference
-	w.db.ExecContext(ctx, `UPDATE transactions SET gateway_ref = $1 WHERE id = $2`, resp.GatewayRef, p.TransactionID)
+	if _, err := w.db.ExecContext(ctx, `UPDATE transactions SET gateway_ref = $1 WHERE id = $2`, resp.GatewayRef, p.TransactionID); err != nil {
+		l.WithError(err).Warn("Failed to store gateway reference, transaction will continue without it")
+	}
 
-	log.WithField("gateway_ref", resp.GatewayRef).Info("Deposit initiated with gateway")
+	l.WithField("gateway_ref", resp.GatewayRef).Info("Deposit initiated with gateway")
 	return nil
 }
 
 func (w *Worker) HandleWithdrawalTask(ctx context.Context, t *asynq.Task) error {
 	var p PaymentPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
-		return fmt.Errorf("failed to unmarshal payload: %w", err)
+		return fmt.Errorf("failed to unmarshal withdrawal payload: %w", err)
 	}
 
-	log.WithFields(log.Fields{
-		"transaction_id": p.TransactionID,
-		"amount":         p.Amount,
-		"phone":          p.PhoneNumber,
-	}).Info("Processing withdrawal payment")
+	l := txnLog(p)
+	l.Info("Processing withdrawal payment")
 
-	w.db.ExecContext(ctx, `UPDATE transactions SET status = 'processing' WHERE id = $1`, p.TransactionID)
+	if _, err := w.db.ExecContext(ctx, `UPDATE transactions SET status = 'processing' WHERE id = $1`, p.TransactionID); err != nil {
+		l.WithError(err).Warn("Failed to update transaction to processing, continuing with gateway call")
+	}
 
 	resp, err := w.gateway.InitiateWithdrawal(ctx, payment.WithdrawalRequest{
 		TransactionID: p.TransactionID,
@@ -124,18 +138,21 @@ func (w *Worker) HandleWithdrawalTask(ctx context.Context, t *asynq.Task) error 
 		Reference:     p.Reference,
 	})
 	if err != nil {
-		log.WithError(err).Error("Gateway withdrawal failed")
-		w.db.ExecContext(ctx, `UPDATE transactions SET status = 'failed' WHERE id = $1`, p.TransactionID)
+		l.WithError(err).Error("Gateway withdrawal initiation failed")
+		if _, dbErr := w.db.ExecContext(ctx, `UPDATE transactions SET status = 'failed' WHERE id = $1`, p.TransactionID); dbErr != nil {
+			l.WithError(dbErr).Error("Failed to mark transaction as failed after gateway error")
+		}
 		return err
 	}
 
-	w.db.ExecContext(ctx, `UPDATE transactions SET gateway_ref = $1 WHERE id = $2`, resp.GatewayRef, p.TransactionID)
+	if _, err := w.db.ExecContext(ctx, `UPDATE transactions SET gateway_ref = $1 WHERE id = $2`, resp.GatewayRef, p.TransactionID); err != nil {
+		l.WithError(err).Warn("Failed to store gateway reference, transaction will continue without it")
+	}
 
-	log.WithField("gateway_ref", resp.GatewayRef).Info("Withdrawal initiated with gateway")
+	l.WithField("gateway_ref", resp.GatewayRef).Info("Withdrawal initiated with gateway")
 	return nil
 }
 
-// ReconcilePendingTransactions marks stale pending transactions as failed
 func (w *Worker) ReconcilePendingTransactions(ctx context.Context, t *asynq.Task) error {
 	log.Info("Running transaction reconciliation")
 
@@ -144,15 +161,18 @@ func (w *Worker) ReconcilePendingTransactions(ctx context.Context, t *asynq.Task
 		 WHERE status IN ('pending', 'processing') AND created_at < NOW() - INTERVAL '30 minutes'`,
 	)
 	if err != nil {
+		log.WithError(err).Error("Reconciliation query failed")
 		return fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	affected, _ := result.RowsAffected()
+	affected, err := result.RowsAffected()
+	if err != nil {
+		log.WithError(err).Warn("Failed to get reconciliation rows affected")
+	}
 	log.WithField("affected", affected).Info("Reconciliation complete")
 	return nil
 }
 
-// StartWorkerServer starts the Asynq worker server
 func StartWorkerServer(redisAddr string, worker *Worker) *asynq.Server {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisAddr},
@@ -180,16 +200,16 @@ func StartWorkerServer(redisAddr string, worker *Worker) *asynq.Server {
 	return srv
 }
 
-// StartScheduler starts periodic tasks (reconciliation)
 func StartScheduler(redisAddr string) *asynq.Scheduler {
 	scheduler := asynq.NewScheduler(
 		asynq.RedisClientOpt{Addr: redisAddr},
 		nil,
 	)
 
-	// Run reconciliation every 15 minutes
 	task := asynq.NewTask(TypeReconcilePending, nil)
-	scheduler.Register("*/15 * * * *", task)
+	if _, err := scheduler.Register("*/15 * * * *", task); err != nil {
+		log.WithError(err).Error("Failed to register reconciliation scheduler")
+	}
 
 	go func() {
 		if err := scheduler.Run(); err != nil {
