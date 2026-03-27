@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { notificationApi } from '../api/services'
 import {
@@ -9,20 +9,44 @@ import {
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 
-const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/deposit', label: 'Deposit', icon: ArrowDownToLine },
-  { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
-  { to: '/transactions', label: 'Transactions', icon: History },
-  { to: '/savings', label: 'Savings', icon: PiggyBank },
-  { to: '/investments', label: 'Investments', icon: TrendingUp },
-  { to: '/groups', label: 'Groups', icon: Users },
-  { to: '/insurance', label: 'Insurance', icon: ShieldCheck },
-  { to: '/loans', label: 'Loans', icon: Banknote },
-  { to: '/learn', label: 'Learn', icon: BookOpen },
-  { to: '/kyc', label: 'KYC', icon: Shield },
-  { to: '/notifications', label: 'Notifications', icon: Bell },
-  { to: '/profile', label: 'Profile', icon: User },
+const navSections = [
+  {
+    items: [
+      { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: 'Money',
+    items: [
+      { to: '/deposit', label: 'Deposit', icon: ArrowDownToLine },
+      { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
+      { to: '/transactions', label: 'Transactions', icon: History },
+    ],
+  },
+  {
+    label: 'Grow',
+    items: [
+      { to: '/savings', label: 'Savings', icon: PiggyBank },
+      { to: '/investments', label: 'Invest', icon: TrendingUp },
+      { to: '/groups', label: 'Upatu', icon: Users },
+    ],
+  },
+  {
+    label: 'Protect',
+    items: [
+      { to: '/insurance', label: 'Insurance', icon: ShieldCheck },
+      { to: '/loans', label: 'Loans', icon: Banknote },
+    ],
+  },
+  {
+    label: 'More',
+    items: [
+      { to: '/learn', label: 'Learn', icon: BookOpen },
+      { to: '/kyc', label: 'Verify', icon: Shield },
+      { to: '/notifications', label: 'Notifications', icon: Bell },
+      { to: '/profile', label: 'Account', icon: User },
+    ],
+  },
 ]
 
 export default function Layout() {
@@ -30,8 +54,8 @@ export default function Layout() {
   const [unreadCount, setUnreadCount] = useState(0)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const location = useLocation()
 
-  // Load unread notification count (delayed to avoid racing with page data loads)
   useEffect(() => {
     const timeout = setTimeout(() => {
       notificationApi.list()
@@ -39,7 +63,6 @@ export default function Layout() {
         .catch(() => {})
     }, 2000)
 
-    // Refresh every 60 seconds
     const interval = setInterval(() => {
       notificationApi.list()
         .then((res) => setUnreadCount(res.data.unread_count))
@@ -49,79 +72,92 @@ export default function Layout() {
     return () => { clearTimeout(timeout); clearInterval(interval) }
   }, [])
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+  // Close sidebar on route change
+  useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+
+  const handleLogout = () => { logout(); navigate('/login') }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile header */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => setSidebarOpen(true)} className="p-1">
-          <Menu className="w-6 h-6" />
+      {/* Mobile top bar */}
+      <div className="lg:hidden bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+        <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 hover:bg-navy-50 rounded-xl">
+          <Menu className="w-5 h-5 text-navy-700" />
         </button>
-        <h1 className="text-lg font-bold text-primary-600">SavingPlus</h1>
-        <div className="w-6" />
+        <span className="text-lg font-bold text-navy-900">Saving<span className="text-primary-700">Plus</span></span>
+        <div className="w-9" />
       </div>
 
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="fixed inset-0 bg-black/50" />
+          <div className="fixed inset-0 bg-navy-950/30 backdrop-blur-sm" />
         </div>
       )}
 
       {/* Sidebar */}
       <aside className={clsx(
-        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 lg:translate-x-0 flex flex-col',
+        'fixed inset-y-0 left-0 z-50 w-[260px] bg-white border-r border-gray-100 transform transition-transform duration-200 ease-out lg:translate-x-0 flex flex-col',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h1 className="text-xl font-bold text-primary-600">SavingPlus</h1>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1">
-            <X className="w-5 h-5" />
+        {/* Logo */}
+        <div className="flex items-center justify-between px-6 py-5 flex-shrink-0">
+          <span className="text-xl font-bold text-navy-900">Saving<span className="text-primary-700">Plus</span></span>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 hover:bg-navy-50 rounded-lg">
+            <X className="w-5 h-5 text-navy-500" />
           </button>
         </div>
 
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+          {navSections.map((section, i) => (
+            <div key={i} className={i > 0 ? 'mt-5' : ''}>
+              {section.label && (
+                <p className="px-3 mb-1.5 text-2xs font-semibold uppercase tracking-wider text-navy-400">
+                  {section.label}
+                </p>
               )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="flex-1">{item.label}</span>
-              {item.to === '/notifications' && unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </NavLink>
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) => clsx(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-primary-50 text-primary-800'
+                        : 'text-navy-600 hover:bg-navy-50 hover:text-navy-900'
+                    )}
+                  >
+                    <item.icon className="w-[18px] h-[18px]" />
+                    <span className="flex-1">{item.label}</span>
+                    {item.to === '/notifications' && unreadCount > 0 && (
+                      <span className="bg-danger text-white text-2xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-100 flex-shrink-0">
+        {/* Logout */}
+        <div className="px-3 py-4 border-t border-gray-100 flex-shrink-0">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium text-navy-500 hover:bg-red-50 hover:text-danger transition-all duration-150"
           >
-            <LogOut className="w-5 h-5" />
-            Logout
+            <LogOut className="w-[18px] h-[18px]" />
+            Log out
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-64 min-h-screen">
-        <div className="max-w-5xl mx-auto p-4 lg:p-8">
+      <main className="lg:ml-[260px] min-h-screen">
+        <div className="max-w-3xl mx-auto px-4 py-6 lg:px-8 lg:py-8">
           <Outlet />
         </div>
       </main>

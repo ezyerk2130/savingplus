@@ -4,28 +4,58 @@
 
 @layer base {
   body {
-    @apply text-gray-900;
+    @apply text-navy-900 bg-gray-50 antialiased;
   }
 }
 
 @layer components {
+  /* Wise-style primary button - bold green with dark text */
   .btn-primary {
-    @apply bg-primary-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-primary-700
-           transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-primary-600 text-white px-5 py-3 rounded-2xl font-semibold
+           hover:bg-primary-700 active:scale-[0.98]
+           transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed
+           text-sm;
   }
+
+  /* Secondary button - outlined, subtle */
   .btn-secondary {
-    @apply bg-white text-gray-700 px-4 py-2.5 rounded-lg font-medium border border-gray-300
-           hover:bg-gray-50 transition-colors duration-200;
+    @apply bg-white text-navy-700 px-5 py-3 rounded-2xl font-semibold
+           border border-navy-200 hover:bg-navy-50 active:scale-[0.98]
+           transition-all duration-150 text-sm;
   }
+
+  /* Danger button */
   .btn-danger {
-    @apply bg-red-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-red-700
-           transition-colors duration-200;
+    @apply bg-danger text-white px-5 py-3 rounded-2xl font-semibold
+           hover:bg-red-600 active:scale-[0.98]
+           transition-all duration-150 text-sm;
   }
+
+  /* Wise-style input - clean, minimal border, large touch target */
   .input-field {
-    @apply w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500
-           focus:border-primary-500 outline-none transition-all duration-200 text-sm;
+    @apply w-full px-4 py-3.5 bg-white border border-navy-200 rounded-2xl
+           focus:ring-2 focus:ring-primary-500 focus:border-primary-500
+           outline-none transition-all duration-150 text-sm text-navy-900
+           placeholder:text-navy-300;
   }
+
+  /* Card - clean with generous padding, subtle border */
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white rounded-3xl border border-gray-100 p-6;
   }
+
+  /* Amount display - large bold numbers like Wise */
+  .amount-display {
+    @apply text-amount text-navy-900 tracking-tight;
+  }
+
+  /* Status badge base */
+  .badge {
+    @apply text-xs px-2.5 py-1 rounded-full font-semibold inline-flex items-center;
+  }
+  .badge-success { @apply badge bg-green-50 text-green-700; }
+  .badge-warning { @apply badge bg-amber-50 text-amber-700; }
+  .badge-danger { @apply badge bg-red-50 text-red-700; }
+  .badge-info { @apply badge bg-blue-50 text-blue-700; }
+  .badge-neutral { @apply badge bg-navy-50 text-navy-600; }
 }

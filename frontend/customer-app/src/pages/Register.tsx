@@ -36,7 +36,7 @@ export default function Register() {
         password: data.password,
         pin: data.pin,
       })
-      toast.success('Registration successful! Please log in.')
+      toast.success('Account created! Please log in.')
       navigate('/login')
     } catch (err: unknown) {
       showError(err, 'Registration failed')
@@ -46,54 +46,59 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-700">SavingPlus</h1>
-          <p className="text-gray-600 mt-2">Create your account</p>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4 py-8">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-navy-900">Saving<span className="text-primary-700">Plus</span></h1>
+          <p className="text-navy-400 mt-2 text-sm">Start saving smarter today</p>
         </div>
 
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-6">Register</h2>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-navy-900 mb-1">Create account</h2>
+            <p className="text-navy-400 text-sm">It takes less than a minute</p>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Full name</label>
               <input {...register('full_name')} className="input-field" placeholder="John Doe" />
-              {errors.full_name && <p className="text-red-500 text-xs mt-1">{errors.full_name.message}</p>}
+              {errors.full_name && <p className="text-danger text-xs mt-1.5">{errors.full_name.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Phone number</label>
               <input {...register('phone')} type="tel" className="input-field" placeholder="+255 7XX XXX XXX" />
-              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-danger text-xs mt-1.5">{errors.phone.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Password</label>
               <input {...register('password')} type="password" className="input-field" placeholder="Min 8 characters" />
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-danger text-xs mt-1.5">{errors.password.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Confirm password</label>
               <input {...register('confirm_password')} type="password" className="input-field" />
-              {errors.confirm_password && <p className="text-red-500 text-xs mt-1">{errors.confirm_password.message}</p>}
+              {errors.confirm_password && <p className="text-danger text-xs mt-1.5">{errors.confirm_password.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Transaction PIN (4 digits)</label>
-              <input {...register('pin')} type="password" maxLength={4} className="input-field" placeholder="****" />
-              {errors.pin && <p className="text-red-500 text-xs mt-1">{errors.pin.message}</p>}
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Transaction PIN</label>
+              <input {...register('pin')} type="password" maxLength={4} className="input-field" placeholder="4-digit PIN" />
+              {errors.pin && <p className="text-danger text-xs mt-1.5">{errors.pin.message}</p>}
+              <p className="text-navy-400 text-2xs mt-1">Used to authorize withdrawals and transfers</p>
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Creating account...' : 'Create Account'}
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600 mt-6">
+          <p className="text-center text-sm text-navy-400">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 font-medium hover:underline">Sign In</Link>
+            <Link to="/login" className="text-primary-700 font-semibold hover:underline">Log in</Link>
           </p>
         </div>
       </div>

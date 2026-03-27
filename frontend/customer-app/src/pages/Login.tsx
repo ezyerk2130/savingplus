@@ -38,47 +38,51 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-700">SavingPlus</h1>
-          <p className="text-gray-600 mt-2">Smart savings for Tanzania</p>
+    <div className="min-h-screen flex items-center justify-center bg-white px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-bold text-navy-900">Saving<span className="text-primary-700">Plus</span></h1>
+          <p className="text-navy-400 mt-2 text-sm">Smart savings for Tanzania</p>
         </div>
 
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-6">Sign In</h2>
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-navy-900 mb-1">Log in</h2>
+            <p className="text-navy-400 text-sm">Enter your phone and password</p>
+          </div>
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Phone number</label>
               <input
                 {...register('phone')}
                 type="tel"
                 placeholder="+255 7XX XXX XXX"
                 className="input-field"
               />
-              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-danger text-xs mt-1.5">{errors.phone.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-navy-700 mb-1.5">Password</label>
               <input
                 {...register('password')}
                 type="password"
                 placeholder="Enter your password"
                 className="input-field"
               />
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+              {errors.password && <p className="text-danger text-xs mt-1.5">{errors.password.message}</p>}
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? 'Signing in...' : 'Sign In'}
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
+              {loading ? 'Logging in...' : 'Log in'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-primary-600 font-medium hover:underline">
-              Register
+          <p className="text-center text-sm text-navy-400">
+            New to SavingPlus?{' '}
+            <Link to="/register" className="text-primary-700 font-semibold hover:underline">
+              Create account
             </Link>
           </p>
         </div>
