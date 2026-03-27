@@ -241,7 +241,7 @@ func (h *Handler) GetUserDetail(c *gin.Context) {
 
 	// Get wallet balance
 	var balance, locked float64
-	if err := h.db.QueryRowContext(c, `SELECT available_balance, locked_balance FROM wallets WHERE user_id = $1`, uid).Scan(&balance, &locked); err != nil {
+	if err := h.db.QueryRowContext(c, `SELECT available_balance, locked_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS'`, uid).Scan(&balance, &locked); err != nil {
 		log.WithError(err).Warn("Failed to get wallet balance for user")
 	}
 

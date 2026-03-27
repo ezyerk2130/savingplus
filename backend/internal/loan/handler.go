@@ -151,7 +151,7 @@ func (h *Handler) ApplyForLoan(c *gin.Context) {
 
 	// Get wallet
 	var walletID string
-	err = h.db.QueryRowContext(c, `SELECT id FROM wallets WHERE user_id = $1 LIMIT 1`, userID).Scan(&walletID)
+	err = h.db.QueryRowContext(c, `SELECT id FROM wallets WHERE user_id = $1 AND currency = 'TZS' LIMIT 1`, userID).Scan(&walletID)
 	if err != nil {
 		log.WithError(err).WithField("user_id", userID).Error("Failed to get wallet")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
@@ -377,8 +377,8 @@ func (h *Handler) RepayLoan(c *gin.Context) {
 	txnID := uuid.New()
 	ref := fmt.Sprintf("LN-REP-%s-%d", txnID.String()[:8], time.Now().UnixMilli())
 	if _, err = tx.ExecContext(c,
-		`INSERT INTO transactions (id, user_id, wallet_id, type, status, amount, reference, description, completed_at)
-		 VALUES ($1, $2, $3, 'loan_repayment', 'completed', $4, $5, $6, NOW())`,
+		`INSERT INTO transactions (id, user_id, wallet_id, type, status, amount, currency, reference, description, completed_at)
+		 VALUES ($1, $2, $3, 'loan_repayment', 'completed', $4, 'TZS', $5, $6, NOW())`,
 		txnID, userID, walletID, req.Amount, ref, "Loan repayment",
 	); err != nil {
 		log.WithError(err).Error("Failed to create loan repayment transaction")

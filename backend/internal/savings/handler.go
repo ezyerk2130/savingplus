@@ -114,7 +114,7 @@ func (h *Handler) CreatePlan(c *gin.Context) {
 	// Get wallet
 	var walletID string
 	var available float64
-	err = tx.QueryRowContext(c, `SELECT id, available_balance FROM wallets WHERE user_id = $1 FOR UPDATE`, userID).Scan(&walletID, &available)
+	err = tx.QueryRowContext(c, `SELECT id, available_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS' FOR UPDATE`, userID).Scan(&walletID, &available)
 	if err != nil {
 		log.WithError(err).WithField("user_id", userID).Error("Failed to get wallet")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
@@ -353,7 +353,7 @@ func (h *Handler) DepositToPlan(c *gin.Context) {
 	var walletID string
 	var available float64
 	err = tx.QueryRowContext(c,
-		`SELECT id, available_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+		`SELECT id, available_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS' FOR UPDATE`,
 		userID,
 	).Scan(&walletID, &available)
 	if err != nil {
@@ -492,7 +492,7 @@ func (h *Handler) WithdrawFromPlan(c *gin.Context) {
 	var walletID string
 	var available float64
 	err = tx.QueryRowContext(c,
-		`SELECT id, available_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+		`SELECT id, available_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS' FOR UPDATE`,
 		userID,
 	).Scan(&walletID, &available)
 	if err != nil {
@@ -611,7 +611,7 @@ func (h *Handler) CancelPlan(c *gin.Context) {
 		var walletID string
 		var available float64
 		err = tx.QueryRowContext(c,
-			`SELECT id, available_balance FROM wallets WHERE user_id = $1 FOR UPDATE`,
+			`SELECT id, available_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS' FOR UPDATE`,
 			userID,
 		).Scan(&walletID, &available)
 		if err != nil {

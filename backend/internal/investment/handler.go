@@ -281,10 +281,9 @@ func (h *Handler) Invest(c *gin.Context) {
 	}
 
 	// Update product available pool
-	newPool := availablePool - req.Amount
 	if _, err = tx.ExecContext(c,
-		`UPDATE investment_products SET available_pool = $1, total_pool = total_pool + $2 WHERE id = $3`,
-		newPool, req.Amount, req.ProductID,
+		`UPDATE investment_products SET available_pool = available_pool - $1, total_pool = total_pool + $1 WHERE id = $2`,
+		req.Amount, req.ProductID,
 	); err != nil {
 		log.WithError(err).Error("Failed to update investment product pool")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})

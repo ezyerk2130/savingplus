@@ -62,7 +62,7 @@ func (h *Handler) GetBalance(c *gin.Context) {
 	var resp BalanceResponse
 	var available, locked float64
 	err := h.db.QueryRowContext(c,
-		`SELECT id, currency, available_balance, locked_balance FROM wallets WHERE user_id = $1`,
+		`SELECT id, currency, available_balance, locked_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS'`,
 		userID,
 	).Scan(&resp.WalletID, &resp.Currency, &available, &locked)
 	if err != nil {
@@ -113,7 +113,7 @@ func (h *Handler) Deposit(c *gin.Context) {
 
 	// Get wallet
 	var walletID string
-	err = h.db.QueryRowContext(c, `SELECT id FROM wallets WHERE user_id = $1`, userID).Scan(&walletID)
+	err = h.db.QueryRowContext(c, `SELECT id FROM wallets WHERE user_id = $1 AND currency = 'TZS'`, userID).Scan(&walletID)
 	if err != nil {
 		log.WithError(err).Error("Failed to get wallet")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
@@ -240,7 +240,7 @@ func (h *Handler) Withdraw(c *gin.Context) {
 	var walletID string
 	var available float64
 	err = h.db.QueryRowContext(c,
-		`SELECT id, available_balance FROM wallets WHERE user_id = $1`,
+		`SELECT id, available_balance FROM wallets WHERE user_id = $1 AND currency = 'TZS'`,
 		userID,
 	).Scan(&walletID, &available)
 	if err != nil {

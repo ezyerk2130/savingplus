@@ -2,6 +2,7 @@ package insurance
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -255,7 +256,8 @@ func (h *Handler) Subscribe(c *gin.Context) {
 	policyNumber := fmt.Sprintf("POL-%s-%d", uuid.New().String()[:8], time.Now().UnixMilli())
 
 	// Build beneficiary JSON
-	beneficiaryJSON := fmt.Sprintf(`{"name": "%s", "phone": "%s"}`, req.BeneficiaryName, req.BeneficiaryPhone)
+	beneficiaryData, _ := json.Marshal(map[string]string{"name": req.BeneficiaryName, "phone": req.BeneficiaryPhone})
+	beneficiaryJSON := string(beneficiaryData)
 
 	// Create insurance policy
 	policyID := uuid.New()
