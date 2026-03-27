@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getErrorMessage } from './error'
+import { getErrorMessage, isRateLimited } from './error'
 
 describe('getErrorMessage', () => {
   it('extracts detail from axios-like error response', () => {
@@ -55,5 +55,22 @@ describe('getErrorMessage', () => {
   it('returns fallback when response exists but data is empty', () => {
     const err = { response: { data: {} } }
     expect(getErrorMessage(err)).toBe('Something went wrong')
+  })
+})
+
+describe('isRateLimited', () => {
+  it('returns true for 429 status', () => {
+    const err = { response: { status: 429, data: { error: 'rate_limited' } } }
+    expect(isRateLimited(err)).toBe(true)
+  })
+
+  it('returns false for other status codes', () => {
+    expect(isRateLimited({ response: { status: 400 } })).toBe(false)
+    expect(isRateLimited({ response: { status: 500 } })).toBe(false)
+  })
+
+  it('returns false for non-response errors', () => {
+    expect(isRateLimited(new Error('network'))).toBe(false)
+    expect(isRateLimited(null)).toBe(false)
   })
 })
