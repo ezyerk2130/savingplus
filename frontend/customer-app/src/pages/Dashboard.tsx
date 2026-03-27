@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowDownToLine, ArrowUpFromLine, PiggyBank, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, PiggyBank, Eye, EyeOff, Lock, Unlock, RefreshCw } from 'lucide-react'
 import { walletApi, transactionApi, userApi } from '../api/services'
 import { useAuthStore } from '../store/authStore'
 import { showLoadError } from '../utils/error'
@@ -12,58 +12,79 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<User | null>(null)
   const [showBalance, setShowBalance] = useState(true)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const setUser = useAuthStore((s) => s.setUser)
 
-  const loadDashboard = async () => {
-    setLoading(true)
-    setError(false)
-    try {
-      const [balRes, txnRes, profileRes] = await Promise.all([
-        walletApi.getBalance(),
-        transactionApi.list({ page_size: 5 }),
-        userApi.getProfile(),
-      ])
-      setBalance(balRes.data)
-      setRecentTxns(txnRes.data.transactions)
-      setProfile(profileRes.data)
-      setUser(profileRes.data)
-    } catch (err: unknown) {
-      showLoadError(err, 'dashboard data')
-      setError(true)
-    } finally {
-      setLoading(false)
+  const loadDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
     }
-  }
+
+    // Load each independently so partial data still shows
+    const results = await Promise.allSettled([
+      walletApi.getBalance(),
+      transactionApi.list({ page_size: 5 }),
+      userApi.getProfile(),
+    ])
+
+    if (results[0].status === 'fulfilled') {
+      setBalance(results[0].value.data)
+    } else {
+      showLoadError(results[0].reason, 'balance')
+    }
+
+    if (results[1].status === 'fulfilled') {
+      setRecentTxns(results[1].value.data.transactions)
+    } else {
+      showLoadError(results[1].reason, 'transactions')
+    }
+
+    if (results[2].status === 'fulfilled') {
+      setProfile(results[2].value.data)
+      setUser(results[2].value.data)
+    } else {
+      showLoadError(results[2].reason, 'profile')
+    }
+
+    setLoading(false)
+    setRefreshing(false)
+  }, [setUser])
 
   useEffect(() => {
     loadDashboard()
-  }, [setUser])
+  }, [loadDashboard])
+
+  const formatAmount = (amount: string) =>
+    new Intl.NumberFormat('en-TZ', { minimumFractionDigits: 2 }).format(parseFloat(amount))
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" /></div>
-  }
-
-  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <p className="text-gray-600">Failed to load dashboard data</p>
-        <button onClick={loadDashboard} className="btn-primary">Retry</button>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
       </div>
     )
   }
 
-  const formatAmount = (amount: string) => {
-    return new Intl.NumberFormat('en-TZ', { minimumFractionDigits: 2 }).format(parseFloat(amount))
-  }
-
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Hello, {profile?.full_name?.split(' ')[0] || 'there'}
-        </h1>
-        <p className="text-gray-500 text-sm mt-1">Welcome to your SavingPlus dashboard</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Hello, {profile?.full_name?.split(' ')[0] || 'there'}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Welcome to your SavingPlus dashboard</p>
+        </div>
+        <button
+          onClick={() => loadDashboard(true)}
+          disabled={refreshing}
+          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Balance Card */}
@@ -72,9 +93,12 @@ export default function Dashboard() {
           <div>
             <p className="text-primary-200 text-sm font-medium">Available Balance</p>
             <p className="text-3xl font-bold mt-1">
-              {showBalance ? `TZS ${formatAmount(balance?.available_balance || '0')}` : 'TZS ****'}
+              {balance
+                ? showBalance ? `TZS ${formatAmount(balance.available_balance)}` : 'TZS ****'
+                : 'TZS --'
+              }
             </p>
-            {balance?.locked_balance && parseFloat(balance.locked_balance) > 0 && (
+            {balance && parseFloat(balance.locked_balance) > 0 && (
               <p className="text-primary-200 text-sm mt-2">
                 Locked: TZS {showBalance ? formatAmount(balance.locked_balance) : '****'}
               </p>
@@ -102,7 +126,7 @@ export default function Dashboard() {
       </div>
 
       {/* KYC Banner */}
-      {profile?.kyc_status !== 'approved' && (
+      {profile && profile.kyc_status !== 'approved' && (
         <Link to="/kyc" className="block card border-l-4 border-l-warning bg-amber-50">
           <div className="flex items-center justify-between">
             <div>

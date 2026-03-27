@@ -1,4 +1,5 @@
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
 
 const api = axios.create({
@@ -15,12 +16,25 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor: auto-refresh on 401
+// Response interceptor: handle 401 refresh and 429 rate limit
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const status = error.response?.status
+
+    // Rate limited - show user-friendly message, don't retry
+    if (status === 429) {
+      const retryAfter = error.response?.data?.retry_after || '1s'
+      toast.error(`Too many requests. Please wait ${retryAfter} and try again.`, {
+        id: 'rate-limit', // prevent duplicate toasts
+        duration: 4000,
+      })
+      return Promise.reject(error)
+    }
+
+    // Token expired - try refresh
     const original = error.config
-    if (error.response?.status === 401 && !original._retry) {
+    if (status === 401 && !original._retry) {
       original._retry = true
       const store = useAuthStore.getState()
       const refreshToken = store.refreshToken
@@ -39,6 +53,7 @@ api.interceptors.response.use(
         }
       }
     }
+
     return Promise.reject(error)
   }
 )

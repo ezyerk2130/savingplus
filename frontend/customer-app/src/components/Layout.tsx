@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { notificationApi } from '../api/services'
 import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, History,
   PiggyBank, Shield, User, Bell, LogOut, Menu, X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 
 const navItems = [
@@ -20,8 +21,25 @@ const navItems = [
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+
+  // Load unread notification count
+  useEffect(() => {
+    notificationApi.list()
+      .then((res) => setUnreadCount(res.data.unread_count))
+      .catch(() => {})
+
+    // Refresh every 60 seconds
+    const interval = setInterval(() => {
+      notificationApi.list()
+        .then((res) => setUnreadCount(res.data.unread_count))
+        .catch(() => {})
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -72,7 +90,12 @@ export default function Layout() {
               )}
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.to === '/notifications' && unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

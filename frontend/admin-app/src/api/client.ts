@@ -1,4 +1,5 @@
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import { useAdminAuth } from '../store/authStore'
 
 const api = axios.create({
@@ -17,10 +18,24 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status
+
+    // Rate limited
+    if (status === 429) {
+      const retryAfter = err.response?.data?.retry_after || '1s'
+      toast.error(`Too many requests. Please wait ${retryAfter} and try again.`, {
+        id: 'rate-limit',
+        duration: 4000,
+      })
+      return Promise.reject(err)
+    }
+
+    // Unauthorized
+    if (status === 401) {
       useAdminAuth.getState().logout()
       window.location.href = '/login'
     }
+
     return Promise.reject(err)
   }
 )
