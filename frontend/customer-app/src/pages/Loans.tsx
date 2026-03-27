@@ -22,7 +22,7 @@ export default function Loans() {
 
   // Eligibility
   const [eligibility, setEligibility] = useState<{
-    eligible: boolean; max_amount: number; interest_rate: number; savings_balance: number
+    eligible: boolean; max_amount: string; interest_rate: number; savings_balance: string
   } | null>(null)
   const [eligLoading, setEligLoading] = useState(true)
 
@@ -47,7 +47,7 @@ export default function Loans() {
       loanApi.list(),
       loanApi.checkEligibility(),
     ]).then(([loansRes, eligRes]) => {
-      setLoans(loansRes.data.loans || loansRes.data || [])
+      setLoans(loansRes.data.loans || [])
       setEligibility(eligRes.data)
     }).catch((err: unknown) => {
       showLoadError(err, 'loans')
@@ -66,7 +66,8 @@ export default function Loans() {
     const principal = parseFloat(applyAmount)
     const term = parseInt(applyTerm)
     if (isNaN(principal) || isNaN(term) || principal <= 0) return null
-    const interest = principal * (eligibility.interest_rate / 100) * (term / 365)
+    const rate = typeof eligibility.interest_rate === 'string' ? parseFloat(eligibility.interest_rate) : eligibility.interest_rate
+    const interest = principal * (rate / 100) * (term / 365)
     return principal + interest
   }
 
@@ -75,7 +76,7 @@ export default function Loans() {
       toast.error('Enter a valid amount')
       return
     }
-    if (eligibility && parseFloat(applyAmount) > eligibility.max_amount) {
+    if (eligibility && parseFloat(applyAmount) > parseFloat(eligibility.max_amount)) {
       toast.error(`Maximum loan amount is TZS ${formatAmount(eligibility.max_amount)}`)
       return
     }
@@ -182,7 +183,7 @@ export default function Loans() {
                         className="input-field"
                         placeholder="Enter loan amount"
                         min={1}
-                        max={eligibility.max_amount}
+                        max={parseFloat(eligibility.max_amount)}
                       />
                     </div>
                     <div>

@@ -96,38 +96,40 @@ export interface TierLimits {
 
 export interface InvestmentProduct {
   id: string; name: string; description: string; type: string; currency: string;
-  min_amount: number; max_amount?: number; expected_return: number;
-  duration_days?: number; risk_level: string; status: string
+  min_amount: string; max_amount?: string; expected_return: string;
+  available_pool?: string; duration_days?: number; risk_level: string; status: string
 }
 
 export interface Investment {
-  id: string; product_name: string; product_type: string; amount: string;
+  id: string; product_id: string; product_name: string; product_type: string; amount: string;
   currency: string; expected_return: number; actual_return?: string;
   status: string; maturity_date?: string; created_at: string
 }
 
 export interface SavingsGroup {
   id: string; name: string; description?: string; type: string;
-  contribution_amount: number; frequency: string; max_members: number;
-  member_count?: number; current_round: number; status: string; created_at: string
+  contribution_amount: string; frequency: string; max_members: number;
+  currency?: string; total_rounds?: number; start_date?: string;
+  next_payout_date?: string; current_round: number; status: string; created_at: string
 }
 
 export interface InsuranceProduct {
   id: string; name: string; description: string; type: string; provider: string;
-  premium_amount: number; premium_frequency: string; coverage_amount: number;
-  coverage_details: any; status: string
+  premium_amount: string; premium_frequency: string; coverage_amount: string;
+  coverage_details: string; min_age?: number; max_age?: number; status: string
 }
 
 export interface InsurancePolicy {
-  id: string; product_name: string; product_type: string; policy_number: string;
+  id: string; product_id: string; product_name: string; product_type: string; policy_number: string;
   status: string; coverage_start: string; coverage_end: string;
-  premium_paid: number; created_at: string
+  premium_paid: string; auto_renew?: boolean; beneficiary?: string; created_at: string
 }
 
 export interface Loan {
   id: string; loan_number: string; type: string; principal: string;
   interest_rate: number; total_due: string; amount_paid: string;
-  status: string; term_days: number; due_date: string; created_at: string
+  currency?: string; collateral_type?: string; collateral_amount?: string;
+  disbursed_at?: string; status: string; term_days: number; due_date: string; created_at: string
 }
 
 export interface ContentArticle {

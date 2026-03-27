@@ -29,7 +29,7 @@ export default function Learn() {
     setError(false)
     const params = category && category !== 'All' ? { category: category.toLowerCase() } : {}
     contentApi.listArticles(params).then((res) => {
-      setArticles(res.data.articles || res.data || [])
+      setArticles(res.data.articles || [])
     }).catch((err: unknown) => {
       showLoadError(err, 'articles')
       setError(true)

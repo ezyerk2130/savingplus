@@ -13,6 +13,11 @@ import FeatureFlags from './pages/FeatureFlags'
 import AdminUsers from './pages/AdminUsers'
 import TierLimits from './pages/TierLimits'
 import SecurityAlerts from './pages/SecurityAlerts'
+import InvestmentAdmin from './pages/InvestmentAdmin'
+import LoanAdmin from './pages/LoanAdmin'
+import GroupAdmin from './pages/GroupAdmin'
+import InsuranceAdmin from './pages/InsuranceAdmin'
+import ContentAdmin from './pages/ContentAdmin'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuth = useAdminAuth((s) => s.isAuthenticated)
@@ -36,6 +41,11 @@ export default function App() {
         <Route path="admin-users" element={<AdminUsers />} />
         <Route path="tier-limits" element={<TierLimits />} />
         <Route path="security-alerts" element={<SecurityAlerts />} />
+        <Route path="investment-admin" element={<InvestmentAdmin />} />
+        <Route path="loan-admin" element={<LoanAdmin />} />
+        <Route path="group-admin" element={<GroupAdmin />} />
+        <Route path="insurance-admin" element={<InsuranceAdmin />} />
+        <Route path="content-admin" element={<ContentAdmin />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

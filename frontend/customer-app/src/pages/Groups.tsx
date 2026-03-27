@@ -43,7 +43,7 @@ export default function Groups() {
     setLoading(true)
     setError(false)
     groupApi.list().then((res) => {
-      setGroups(res.data.groups || res.data || [])
+      setGroups(res.data.groups || [])
     }).catch((err: unknown) => {
       showLoadError(err, 'groups')
       setError(true)
@@ -147,8 +147,8 @@ export default function Groups() {
                   <span className="capitalize">{group.frequency}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                  <span>Members</span>
-                  <span>{group.member_count ?? 0} / {group.max_members}</span>
+                  <span>Max Members</span>
+                  <span>{group.max_members}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Round</span>
@@ -198,7 +198,7 @@ export default function Groups() {
       {/* Create Group Modal */}
       {showCreate && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-gray-900 mb-4">Create Savings Group</h2>
 
             <div className="space-y-3">

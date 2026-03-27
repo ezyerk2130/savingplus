@@ -2,7 +2,8 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAdminAuth } from '../store/authStore'
 import {
   LayoutDashboard, Users, Receipt, ScrollText, Flag, LogOut, Shield,
-  FileCheck, Scale, UserCog, Sliders, AlertTriangle,
+  FileCheck, Scale, UserCog, Sliders, AlertTriangle, TrendingUp, Banknote,
+  ShieldCheck, FileText,
 } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -26,12 +27,17 @@ export default function AdminLayout() {
     { to: '/audit-logs', label: 'Audit Logs', icon: ScrollText, roles: ['super_admin'] },
     { to: '/feature-flags', label: 'Feature Flags', icon: Flag, roles: ['super_admin'] },
     { to: '/security-alerts', label: 'Security Alerts', icon: AlertTriangle, roles: ['super_admin'] },
+    { to: '/investment-admin', label: 'Investment Monitor', icon: TrendingUp, roles: ['super_admin'] },
+    { to: '/loan-admin', label: 'Loan Management', icon: Banknote, roles: ['super_admin'] },
+    { to: '/group-admin', label: 'Group Monitor', icon: Users, roles: ['super_admin'] },
+    { to: '/insurance-admin', label: 'Insurance Monitor', icon: ShieldCheck, roles: ['super_admin'] },
+    { to: '/content-admin', label: 'Content', icon: FileText, roles: ['super_admin'] },
   ].filter((item) => role && item.roles.includes(role))
 
   // Group nav items
   const supportItems = navItems.filter((i) => ['/users', '/kyc-queue'].includes(i.to))
   const financeItems = navItems.filter((i) => ['/transactions', '/reconciliation'].includes(i.to))
-  const superItems = navItems.filter((i) => ['/admin-users', '/tier-limits', '/audit-logs', '/feature-flags', '/security-alerts'].includes(i.to))
+  const superItems = navItems.filter((i) => ['/admin-users', '/tier-limits', '/audit-logs', '/feature-flags', '/security-alerts', '/investment-admin', '/loan-admin', '/group-admin', '/insurance-admin', '/content-admin'].includes(i.to))
   const dashItem = navItems.filter((i) => i.to === '/dashboard')
 
   const renderNav = (items: typeof navItems, label?: string) => (

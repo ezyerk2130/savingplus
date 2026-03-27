@@ -48,8 +48,8 @@ export default function Insurance() {
       insuranceApi.listProducts(),
       insuranceApi.listPolicies(),
     ]).then(([prodRes, polRes]) => {
-      setProducts(prodRes.data.products || prodRes.data || [])
-      setPolicies(polRes.data.policies || polRes.data || [])
+      setProducts(prodRes.data.products || [])
+      setPolicies(polRes.data.policies || [])
     }).catch((err: unknown) => {
       showLoadError(err, 'insurance')
       setError(true)
@@ -232,7 +232,7 @@ export default function Insurance() {
       {/* Subscribe Modal */}
       {subscribeModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setSubscribeModal(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-gray-900 mb-1">Subscribe to {subscribeModal.name}</h2>
             <p className="text-sm text-gray-500 mb-4">
               TZS {formatAmount(subscribeModal.premium_amount)}/{subscribeModal.premium_frequency} | Coverage: TZS {formatAmount(subscribeModal.coverage_amount)}

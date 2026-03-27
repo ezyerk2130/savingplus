@@ -54,8 +54,8 @@ export default function Investments() {
       investmentApi.listProducts(),
       investmentApi.listInvestments(),
     ]).then(([prodRes, invRes]) => {
-      setProducts(prodRes.data.products || prodRes.data || [])
-      setInvestments(invRes.data.investments || invRes.data || [])
+      setProducts(prodRes.data.products || [])
+      setInvestments(invRes.data.investments || [])
     }).catch((err: unknown) => {
       showLoadError(err, 'investments')
       setError(true)
@@ -69,11 +69,11 @@ export default function Investments() {
       toast.error('Enter a valid amount')
       return
     }
-    if (parseFloat(amount) < investModal.min_amount) {
+    if (parseFloat(amount) < parseFloat(investModal.min_amount)) {
       toast.error(`Minimum investment is TZS ${formatAmount(investModal.min_amount)}`)
       return
     }
-    if (investModal.max_amount && parseFloat(amount) > investModal.max_amount) {
+    if (investModal.max_amount && parseFloat(amount) > parseFloat(investModal.max_amount)) {
       toast.error(`Maximum investment is TZS ${formatAmount(investModal.max_amount)}`)
       return
     }
@@ -269,7 +269,7 @@ export default function Investments() {
       {/* Invest Modal */}
       {investModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setInvestModal(null)}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-bold text-gray-900 mb-1">Invest in {investModal.name}</h2>
             <p className="text-sm text-gray-500 mb-4">
               Expected return: {investModal.expected_return}% | {investModal.duration_days ? `${investModal.duration_days} days` : 'Flexible'}
@@ -288,8 +288,8 @@ export default function Investments() {
                 onChange={(e) => setAmount(e.target.value)}
                 className="input-field"
                 placeholder="Enter amount"
-                min={investModal.min_amount}
-                max={investModal.max_amount}
+                min={parseFloat(investModal.min_amount)}
+                max={investModal.max_amount ? parseFloat(investModal.max_amount) : undefined}
                 autoFocus
               />
             </div>
