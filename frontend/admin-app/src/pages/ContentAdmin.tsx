@@ -27,7 +27,7 @@ const emptyForm: ArticleForm = {
   title_sw: '',
   body: '',
   body_sw: '',
-  category: 'savings_tips',
+  category: 'saving',
   read_time_min: 3,
 }
 
@@ -56,7 +56,7 @@ export default function ContentAdmin() {
 
   const handleTogglePublished = (articleId: string, currentPublished: boolean) => {
     setToggling(articleId)
-    api.patch(`/content/articles/${articleId}`, { published: !currentPublished })
+    api.put(`/content/articles/${articleId}/publish`, { published: !currentPublished })
       .then(() => {
         toast.success(currentPublished ? 'Article unpublished' : 'Article published')
         fetchArticles()
@@ -72,7 +72,7 @@ export default function ContentAdmin() {
       return
     }
     setSubmitting(true)
-    api.post('/content/articles', form)
+    api.post('/content/articles', { ...form, published: false })
       .then(() => {
         toast.success('Article created')
         setForm(emptyForm)
@@ -158,10 +158,11 @@ export default function ContentAdmin() {
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className="input-field"
                 >
-                  <option value="savings_tips">Savings Tips</option>
-                  <option value="investment">Investment</option>
-                  <option value="security">Security</option>
-                  <option value="announcements">Announcements</option>
+                  <option value="saving">Saving</option>
+                  <option value="investing">Investing</option>
+                  <option value="budgeting">Budgeting</option>
+                  <option value="insurance">Insurance</option>
+                  <option value="credit">Credit</option>
                   <option value="general">General</option>
                 </select>
               </div>
