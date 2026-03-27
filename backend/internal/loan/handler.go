@@ -64,7 +64,7 @@ func (h *Handler) CheckEligibility(c *gin.Context) {
 
 	// Get user KYC tier
 	var kycTier int
-	err = h.db.QueryRowContext(c, `SELECT COALESCE(tier, 0) FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	err = h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
 	if err != nil {
 		log.WithError(err).WithField("user_id", userID).Error("Failed to query user tier for eligibility")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
@@ -116,7 +116,7 @@ func (h *Handler) ApplyForLoan(c *gin.Context) {
 
 	// Check KYC tier
 	var kycTier int
-	err := h.db.QueryRowContext(c, `SELECT COALESCE(tier, 0) FROM users WHERE id = $1`, userID).Scan(&kycTier)
+	err := h.db.QueryRowContext(c, `SELECT kyc_tier FROM users WHERE id = $1`, userID).Scan(&kycTier)
 	if err != nil {
 		log.WithError(err).WithField("user_id", userID).Error("Failed to query user tier")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
