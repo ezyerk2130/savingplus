@@ -60,12 +60,14 @@ export default function Insurance() {
 
   const handleSubscribe = async () => {
     if (!subscribeModal) return
+    if (!beneficiaryName.trim()) { toast.error('Beneficiary name is required'); return }
+    if (!beneficiaryPhone.trim()) { toast.error('Beneficiary phone is required'); return }
     setSubmitting(true)
     try {
       await insuranceApi.subscribe({
         product_id: subscribeModal.id,
-        beneficiary_name: beneficiaryName || undefined,
-        beneficiary_phone: beneficiaryPhone || undefined,
+        beneficiary_name: beneficiaryName,
+        beneficiary_phone: beneficiaryPhone,
       })
       toast.success(`Subscribed to ${subscribeModal.name}`)
       setSubscribeModal(null)
