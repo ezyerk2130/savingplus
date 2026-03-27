@@ -12,6 +12,11 @@ import CreateSavingsPlan from './pages/CreateSavingsPlan'
 import KYCUpload from './pages/KYCUpload'
 import Profile from './pages/Profile'
 import Notifications from './pages/Notifications'
+import Investments from './pages/Investments'
+import Groups from './pages/Groups'
+import Insurance from './pages/Insurance'
+import Loans from './pages/Loans'
+import Learn from './pages/Learn'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -41,6 +46,11 @@ export default function App() {
         <Route path="kyc" element={<KYCUpload />} />
         <Route path="profile" element={<Profile />} />
         <Route path="notifications" element={<Notifications />} />
+        <Route path="investments" element={<Investments />} />
+        <Route path="groups" element={<Groups />} />
+        <Route path="insurance" element={<Insurance />} />
+        <Route path="loans" element={<Loans />} />
+        <Route path="learn" element={<Learn />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

@@ -4,6 +4,7 @@ import { notificationApi } from '../api/services'
 import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, History,
   PiggyBank, Shield, User, Bell, LogOut, Menu, X,
+  TrendingUp, Users, ShieldCheck, Banknote, BookOpen,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
@@ -14,6 +15,11 @@ const navItems = [
   { to: '/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
   { to: '/transactions', label: 'Transactions', icon: History },
   { to: '/savings', label: 'Savings', icon: PiggyBank },
+  { to: '/investments', label: 'Investments', icon: TrendingUp },
+  { to: '/groups', label: 'Groups', icon: Users },
+  { to: '/insurance', label: 'Insurance', icon: ShieldCheck },
+  { to: '/loans', label: 'Loans', icon: Banknote },
+  { to: '/learn', label: 'Learn', icon: BookOpen },
   { to: '/kyc', label: 'KYC', icon: Shield },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/profile', label: 'Profile', icon: User },

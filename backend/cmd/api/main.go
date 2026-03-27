@@ -17,7 +17,12 @@ import (
 
 	"github.com/savingplus/backend/internal/admin"
 	"github.com/savingplus/backend/internal/auth"
+	"github.com/savingplus/backend/internal/content"
 	"github.com/savingplus/backend/internal/db"
+	"github.com/savingplus/backend/internal/group"
+	"github.com/savingplus/backend/internal/insurance"
+	"github.com/savingplus/backend/internal/investment"
+	"github.com/savingplus/backend/internal/loan"
 	"github.com/savingplus/backend/internal/middleware"
 	"github.com/savingplus/backend/internal/notification"
 	"github.com/savingplus/backend/internal/payment"
@@ -92,6 +97,11 @@ func main() {
 	savingsHandler := savings.NewHandler(database)
 	notifHandler := notification.NewHandler(database, cfg)
 	webhookHandler := payment.NewWebhookHandler(database, gw)
+	investmentHandler := investment.NewHandler(database)
+	groupHandler := group.NewHandler(database)
+	insuranceHandler := insurance.NewHandler(database)
+	loanHandler := loan.NewHandler(database)
+	contentHandler := content.NewHandler(database)
 	adminHandler := admin.NewHandler(database, jwtSvc, cfg)
 
 	// Start scheduler for recurring jobs
@@ -178,6 +188,40 @@ func main() {
 			protected.GET("/notifications", notifHandler.ListNotifications)
 			protected.PUT("/notifications/:id/read", notifHandler.MarkRead)
 			protected.PUT("/notifications/read-all", notifHandler.MarkAllRead)
+
+			// Investments (Investify TZ)
+			protected.GET("/investments/products", investmentHandler.ListProducts)
+			protected.GET("/investments/products/:id", investmentHandler.GetProduct)
+			protected.POST("/investments", investmentHandler.Invest)
+			protected.GET("/investments", investmentHandler.ListInvestments)
+			protected.POST("/investments/:id/withdraw", investmentHandler.WithdrawInvestment)
+
+			// Group Savings (Upatu)
+			protected.POST("/groups", groupHandler.CreateGroup)
+			protected.GET("/groups", groupHandler.ListGroups)
+			protected.GET("/groups/:id", groupHandler.GetGroup)
+			protected.POST("/groups/:id/join", groupHandler.JoinGroup)
+			protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)
+			protected.POST("/groups/:id/contribute", groupHandler.Contribute)
+			protected.POST("/groups/:id/start", groupHandler.StartGroup)
+
+			// Insurance
+			protected.GET("/insurance/products", insuranceHandler.ListProducts)
+			protected.GET("/insurance/products/:id", insuranceHandler.GetProduct)
+			protected.POST("/insurance/subscribe", insuranceHandler.Subscribe)
+			protected.GET("/insurance/policies", insuranceHandler.ListPolicies)
+			protected.POST("/insurance/policies/:id/cancel", insuranceHandler.CancelPolicy)
+
+			// Loans (Savings-backed credit)
+			protected.GET("/loans/eligibility", loanHandler.CheckEligibility)
+			protected.POST("/loans", loanHandler.ApplyForLoan)
+			protected.GET("/loans", loanHandler.ListLoans)
+			protected.GET("/loans/:id", loanHandler.GetLoan)
+			protected.POST("/loans/:id/repay", loanHandler.RepayLoan)
+
+			// Financial Literacy Content
+			protected.GET("/content/articles", contentHandler.ListArticles)
+			protected.GET("/content/articles/:id", contentHandler.GetArticle)
 		}
 	}
 
@@ -317,14 +361,21 @@ func main() {
 }
 
 func runMigrations(db *sql.DB) error {
-	migration, err := os.ReadFile("migrations/000001_init.up.sql")
-	if err != nil {
-		return fmt.Errorf("failed to read migration file: %w", err)
+	files := []string{
+		"migrations/000001_init.up.sql",
+		"migrations/000002_product_features.up.sql",
 	}
-	if _, err := db.Exec(string(migration)); err != nil {
-		return fmt.Errorf("failed to execute migration: %w", err)
+	for _, f := range files {
+		migration, err := os.ReadFile(f)
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", f, err)
+		}
+		if _, err := db.Exec(string(migration)); err != nil {
+			log.WithField("file", f).WithError(err).Warn("Migration may already be applied, continuing")
+		} else {
+			log.WithField("file", f).Info("Migration applied successfully")
+		}
 	}
-	log.Info("Database migrations applied successfully")
 	return nil
 }
 
