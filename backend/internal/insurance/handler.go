@@ -373,3 +373,58 @@ func (h *Handler) CancelPolicy(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Insurance policy cancelled successfully"})
 }
+
+// ListAllPolicies returns all insurance policies across all users (admin view).
+func (h *Handler) ListAllPolicies(c *gin.Context) {
+	log := logger.Ctx(c)
+	p := response.GetPagination(c, 20)
+
+	var total int
+	if err := h.db.QueryRowContext(c, `SELECT COUNT(*) FROM insurance_policies`).Scan(&total); err != nil {
+		log.WithError(err).Warn("Failed to count policies")
+	}
+
+	rows, err := h.db.QueryContext(c,
+		`SELECT ip2.id, u.phone, ip.name, ip.type, ip2.policy_number, ip2.status,
+		        ip2.coverage_start, ip2.coverage_end, ip2.premium_paid, ip2.created_at
+		 FROM insurance_policies ip2
+		 JOIN users u ON ip2.user_id = u.id
+		 JOIN insurance_products ip ON ip2.product_id = ip.id
+		 ORDER BY ip2.created_at DESC LIMIT $1 OFFSET $2`,
+		p.PageSize, p.Offset,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to list all policies")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	defer rows.Close()
+
+	type AdminPolicy struct {
+		ID            string `json:"id"`
+		Phone         string `json:"phone"`
+		ProductName   string `json:"product_name"`
+		ProductType   string `json:"product_type"`
+		PolicyNumber  string `json:"policy_number"`
+		Status        string `json:"status"`
+		CoverageStart string `json:"coverage_start"`
+		CoverageEnd   string `json:"coverage_end"`
+		PremiumPaid   string `json:"premium_paid"`
+		CreatedAt     string `json:"created_at"`
+	}
+
+	var policies []AdminPolicy
+	for rows.Next() {
+		var pol AdminPolicy
+		var premiumPaid float64
+		if err := rows.Scan(&pol.ID, &pol.Phone, &pol.ProductName, &pol.ProductType,
+			&pol.PolicyNumber, &pol.Status, &pol.CoverageStart, &pol.CoverageEnd,
+			&premiumPaid, &pol.CreatedAt); err != nil {
+			continue
+		}
+		pol.PremiumPaid = response.FormatMoney(premiumPaid)
+		policies = append(policies, pol)
+	}
+
+	response.PagedList(c, "policies", response.EmptySlice(policies), p, total)
+}

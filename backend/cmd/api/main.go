@@ -295,6 +295,17 @@ func main() {
 				superAdmin.GET("/tier-limits", adminHandler.GetTierLimits)
 				superAdmin.PUT("/tier-limits/:tier", adminHandler.UpdateTierLimits)
 				superAdmin.GET("/security-alerts", adminHandler.GetSecurityAlerts)
+
+				// Admin views for new features (read-only monitoring)
+				superAdmin.GET("/groups", groupHandler.ListAllGroups)
+				superAdmin.GET("/investments/all", investmentHandler.ListAllInvestments)
+				superAdmin.GET("/insurance/policies", insuranceHandler.ListAllPolicies)
+				superAdmin.GET("/loans/all", loanHandler.ListAllLoans)
+				superAdmin.POST("/loans/:id/approve", loanHandler.ApproveLoan)
+				superAdmin.POST("/loans/:id/reject", loanHandler.RejectLoan)
+				superAdmin.GET("/content/articles", contentHandler.ListArticles)
+				superAdmin.POST("/content/articles", contentHandler.CreateArticle)
+				superAdmin.PUT("/content/articles/:id/publish", contentHandler.TogglePublish)
 			}
 		}
 	}

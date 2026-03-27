@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	apperr "github.com/savingplus/backend/internal/errors"
 	"github.com/savingplus/backend/pkg/logger"
@@ -147,4 +148,72 @@ func (h *Handler) GetArticle(c *gin.Context) {
 // itoa is a small helper to convert int to string for query building.
 func itoa(i int) string {
 	return fmt.Sprintf("%d", i)
+}
+
+// CreateArticle creates a new content article (admin).
+func (h *Handler) CreateArticle(c *gin.Context) {
+	log := logger.Ctx(c)
+
+	var req struct {
+		Title       string `json:"title" binding:"required"`
+		TitleSW     string `json:"title_sw"`
+		Body        string `json:"body" binding:"required"`
+		BodySW      string `json:"body_sw"`
+		Category    string `json:"category" binding:"required,oneof=saving investing budgeting insurance credit general"`
+		ReadTimeMin int    `json:"read_time_min"`
+		Published   bool   `json:"published"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
+		return
+	}
+
+	if req.ReadTimeMin < 1 {
+		req.ReadTimeMin = 3
+	}
+
+	articleID := uuid.New()
+	_, err := h.db.ExecContext(c,
+		`INSERT INTO content_articles (id, title, title_sw, body, body_sw, category, read_time_min, published)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		articleID, req.Title, req.TitleSW, req.Body, req.BodySW, req.Category, req.ReadTimeMin, req.Published,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to create article")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"article_id": articleID.String(), "message": "Article created"})
+}
+
+// TogglePublish toggles the published status of an article.
+func (h *Handler) TogglePublish(c *gin.Context) {
+	log := logger.Ctx(c)
+	articleID := c.Param("id")
+
+	var req struct {
+		Published bool `json:"published"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request", "detail": err.Error()})
+		return
+	}
+
+	result, err := h.db.ExecContext(c,
+		`UPDATE content_articles SET published = $1 WHERE id = $2`,
+		req.Published, articleID,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to toggle publish")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Article not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Article updated", "published": req.Published})
 }

@@ -442,3 +442,191 @@ func (h *Handler) RepayLoan(c *gin.Context) {
 		"wallet_balance":   response.FormatMoney(newBalance),
 	})
 }
+
+// ListAllLoans returns all loans across all users (admin view).
+func (h *Handler) ListAllLoans(c *gin.Context) {
+	log := logger.Ctx(c)
+	p := response.GetPagination(c, 20)
+	status := c.DefaultQuery("status", "")
+
+	countQuery := `SELECT COUNT(*) FROM loans`
+	dataQuery := `SELECT l.id, u.phone, l.loan_number, l.type, l.principal, l.interest_rate,
+	              l.total_due, l.amount_paid, l.currency, l.term_days, l.status, l.due_date, l.created_at
+	              FROM loans l JOIN users u ON l.user_id = u.id`
+	args := []interface{}{}
+	idx := 1
+
+	if status != "" {
+		countQuery += ` WHERE status = $` + fmt.Sprintf("%d", idx)
+		dataQuery += ` WHERE l.status = $` + fmt.Sprintf("%d", idx)
+		args = append(args, status)
+		idx++
+	}
+
+	var total int
+	if err := h.db.QueryRowContext(c, countQuery, args...).Scan(&total); err != nil {
+		log.WithError(err).Warn("Failed to count loans")
+	}
+
+	dataQuery += ` ORDER BY l.created_at DESC LIMIT $` + fmt.Sprintf("%d", idx) + ` OFFSET $` + fmt.Sprintf("%d", idx+1)
+	dataArgs := append(args, p.PageSize, p.Offset)
+
+	rows, err := h.db.QueryContext(c, dataQuery, dataArgs...)
+	if err != nil {
+		log.WithError(err).Error("Failed to list all loans")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	defer rows.Close()
+
+	type AdminLoan struct {
+		ID           string `json:"id"`
+		Phone        string `json:"phone"`
+		LoanNumber   string `json:"loan_number"`
+		Type         string `json:"type"`
+		Principal    string `json:"principal"`
+		InterestRate string `json:"interest_rate"`
+		TotalDue     string `json:"total_due"`
+		AmountPaid   string `json:"amount_paid"`
+		Currency     string `json:"currency"`
+		TermDays     int    `json:"term_days"`
+		Status       string `json:"status"`
+		DueDate      string `json:"due_date"`
+		CreatedAt    string `json:"created_at"`
+	}
+
+	var loans []AdminLoan
+	for rows.Next() {
+		var loan AdminLoan
+		var principal, interestRate, totalDue, amountPaid float64
+		if err := rows.Scan(&loan.ID, &loan.Phone, &loan.LoanNumber, &loan.Type,
+			&principal, &interestRate, &totalDue, &amountPaid,
+			&loan.Currency, &loan.TermDays, &loan.Status, &loan.DueDate, &loan.CreatedAt); err != nil {
+			continue
+		}
+		loan.Principal = response.FormatMoney(principal)
+		loan.InterestRate = response.FormatMoney(interestRate)
+		loan.TotalDue = response.FormatMoney(totalDue)
+		loan.AmountPaid = response.FormatMoney(amountPaid)
+		loans = append(loans, loan)
+	}
+
+	response.PagedList(c, "loans", response.EmptySlice(loans), p, total)
+}
+
+// ApproveLoan approves a pending loan and disburses funds to the user's wallet.
+func (h *Handler) ApproveLoan(c *gin.Context) {
+	log := logger.Ctx(c)
+	loanID := c.Param("id")
+	adminID := c.GetString("admin_id")
+
+	tx, err := h.db.BeginTx(c, nil)
+	if err != nil {
+		log.WithError(err).Error("Failed to begin approve loan transaction")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	defer tx.Rollback()
+
+	var userID, walletID, status string
+	var principal float64
+	err = tx.QueryRowContext(c,
+		`SELECT l.user_id, l.wallet_id, l.status, l.principal FROM loans l WHERE l.id = $1 FOR UPDATE`,
+		loanID,
+	).Scan(&userID, &walletID, &status, &principal)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Loan not found"})
+		return
+	}
+	if err != nil {
+		log.WithError(err).Error("Failed to get loan for approval")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	if status != "pending" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Loan is not pending", "status": status})
+		return
+	}
+
+	// Credit wallet with loan amount
+	var available float64
+	err = tx.QueryRowContext(c,
+		`SELECT available_balance FROM wallets WHERE id = $1 FOR UPDATE`, walletID,
+	).Scan(&available)
+	if err != nil {
+		log.WithError(err).Error("Failed to get wallet for loan disbursement")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	newBalance := available + principal
+	if _, err = tx.ExecContext(c, `UPDATE wallets SET available_balance = $1 WHERE id = $2`, newBalance, walletID); err != nil {
+		log.WithError(err).Error("Failed to credit wallet for loan")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	// Create transaction
+	txnID := uuid.New()
+	ref := fmt.Sprintf("LN-DIS-%s-%d", txnID.String()[:8], time.Now().UnixMilli())
+	if _, err = tx.ExecContext(c,
+		`INSERT INTO transactions (id, user_id, wallet_id, type, status, amount, currency, reference, description, completed_at)
+		 VALUES ($1, $2, $3, 'loan_disbursement', 'completed', $4, 'TZS', $5, $6, NOW())`,
+		txnID, userID, walletID, principal, ref, "Loan disbursement",
+	); err != nil {
+		log.WithError(err).Error("Failed to create loan disbursement transaction")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	// Create ledger entry
+	if _, err = tx.ExecContext(c,
+		`INSERT INTO ledger_entries (id, transaction_id, wallet_id, entry_type, amount, balance_after, description)
+		 VALUES ($1, $2, $3, 'credit', $4, $5, $6)`,
+		uuid.New(), txnID, walletID, principal, newBalance, "Loan disbursement",
+	); err != nil {
+		log.WithError(err).Error("Failed to create ledger entry for loan disbursement")
+	}
+
+	// Update loan status
+	if _, err = tx.ExecContext(c,
+		`UPDATE loans SET status = 'disbursed', approved_by = $1, disbursed_at = NOW() WHERE id = $2`,
+		adminID, loanID,
+	); err != nil {
+		log.WithError(err).Error("Failed to update loan status to disbursed")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.WithError(err).Error("Failed to commit loan approval")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Loan approved and disbursed", "loan_id": loanID})
+}
+
+// RejectLoan rejects a pending loan application.
+func (h *Handler) RejectLoan(c *gin.Context) {
+	log := logger.Ctx(c)
+	loanID := c.Param("id")
+
+	result, err := h.db.ExecContext(c,
+		`UPDATE loans SET status = 'rejected' WHERE id = $1 AND status = 'pending'`,
+		loanID,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to reject loan")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Loan not found or not pending"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Loan rejected", "loan_id": loanID})
+}

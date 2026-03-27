@@ -725,3 +725,56 @@ func (h *Handler) StartGroup(c *gin.Context) {
 		"next_payout_date": nextPayoutDate.Format("2006-01-02"),
 	})
 }
+
+// ListAllGroups returns all savings groups (admin view, no user filter).
+func (h *Handler) ListAllGroups(c *gin.Context) {
+	log := logger.Ctx(c)
+	p := response.GetPagination(c, 20)
+
+	var total int
+	if err := h.db.QueryRowContext(c, `SELECT COUNT(*) FROM savings_groups`).Scan(&total); err != nil {
+		log.WithError(err).Warn("Failed to count groups")
+	}
+
+	rows, err := h.db.QueryContext(c,
+		`SELECT sg.id, sg.name, sg.type, sg.currency, sg.contribution_amount, sg.frequency,
+		        sg.max_members, sg.current_round, sg.status, sg.created_at,
+		        (SELECT COUNT(*) FROM group_members gm WHERE gm.group_id = sg.id AND gm.status = 'active') AS member_count
+		 FROM savings_groups sg ORDER BY sg.created_at DESC LIMIT $1 OFFSET $2`,
+		p.PageSize, p.Offset,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to list all groups")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	defer rows.Close()
+
+	type AdminGroup struct {
+		ID                 string `json:"id"`
+		Name               string `json:"name"`
+		Type               string `json:"type"`
+		Currency           string `json:"currency"`
+		ContributionAmount string `json:"contribution_amount"`
+		Frequency          string `json:"frequency"`
+		MaxMembers         int    `json:"max_members"`
+		MemberCount        int    `json:"member_count"`
+		CurrentRound       int    `json:"current_round"`
+		Status             string `json:"status"`
+		CreatedAt          string `json:"created_at"`
+	}
+
+	var groups []AdminGroup
+	for rows.Next() {
+		var g AdminGroup
+		var amount float64
+		if err := rows.Scan(&g.ID, &g.Name, &g.Type, &g.Currency, &amount, &g.Frequency,
+			&g.MaxMembers, &g.CurrentRound, &g.Status, &g.CreatedAt, &g.MemberCount); err != nil {
+			continue
+		}
+		g.ContributionAmount = response.FormatMoney(amount)
+		groups = append(groups, g)
+	}
+
+	response.PagedList(c, "groups", response.EmptySlice(groups), p, total)
+}

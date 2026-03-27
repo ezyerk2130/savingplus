@@ -507,3 +507,57 @@ func (h *Handler) WithdrawInvestment(c *gin.Context) {
 		"wallet_balance": response.FormatMoney(newBalance),
 	})
 }
+
+// ListAllInvestments returns all investments across all users (admin view).
+func (h *Handler) ListAllInvestments(c *gin.Context) {
+	log := logger.Ctx(c)
+	p := response.GetPagination(c, 20)
+
+	var total int
+	if err := h.db.QueryRowContext(c, `SELECT COUNT(*) FROM investments`).Scan(&total); err != nil {
+		log.WithError(err).Warn("Failed to count investments")
+	}
+
+	rows, err := h.db.QueryContext(c,
+		`SELECT i.id, u.phone, ip.name, ip.type, i.amount, i.currency, i.expected_return,
+		        i.status, i.created_at
+		 FROM investments i
+		 JOIN users u ON i.user_id = u.id
+		 JOIN investment_products ip ON i.product_id = ip.id
+		 ORDER BY i.created_at DESC LIMIT $1 OFFSET $2`,
+		p.PageSize, p.Offset,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to list all investments")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	defer rows.Close()
+
+	type AdminInvestment struct {
+		ID             string `json:"id"`
+		Phone          string `json:"phone"`
+		ProductName    string `json:"product_name"`
+		ProductType    string `json:"product_type"`
+		Amount         string `json:"amount"`
+		Currency       string `json:"currency"`
+		ExpectedReturn string `json:"expected_return"`
+		Status         string `json:"status"`
+		CreatedAt      string `json:"created_at"`
+	}
+
+	var investments []AdminInvestment
+	for rows.Next() {
+		var inv AdminInvestment
+		var amount, expectedReturn float64
+		if err := rows.Scan(&inv.ID, &inv.Phone, &inv.ProductName, &inv.ProductType,
+			&amount, &inv.Currency, &expectedReturn, &inv.Status, &inv.CreatedAt); err != nil {
+			continue
+		}
+		inv.Amount = response.FormatMoney(amount)
+		inv.ExpectedReturn = response.FormatMoney(expectedReturn)
+		investments = append(investments, inv)
+	}
+
+	response.PagedList(c, "investments", response.EmptySlice(investments), p, total)
+}
