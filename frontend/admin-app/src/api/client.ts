@@ -22,10 +22,10 @@ api.interceptors.response.use(
 
     // Rate limited
     if (status === 429) {
-      const retryAfter = err.response?.data?.retry_after || '1s'
-      toast.error(`Too many requests. Please wait ${retryAfter} and try again.`, {
+      toast('Loading... please wait a moment', {
         id: 'rate-limit',
-        duration: 4000,
+        icon: '⏳',
+        duration: 2000,
       })
       return Promise.reject(err)
     }

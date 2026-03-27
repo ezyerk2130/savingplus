@@ -25,11 +25,13 @@ export default function Layout() {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
 
-  // Load unread notification count
+  // Load unread notification count (delayed to avoid racing with page data loads)
   useEffect(() => {
-    notificationApi.list()
-      .then((res) => setUnreadCount(res.data.unread_count))
-      .catch(() => {})
+    const timeout = setTimeout(() => {
+      notificationApi.list()
+        .then((res) => setUnreadCount(res.data.unread_count))
+        .catch(() => {})
+    }, 2000)
 
     // Refresh every 60 seconds
     const interval = setInterval(() => {
@@ -38,7 +40,7 @@ export default function Layout() {
         .catch(() => {})
     }, 60000)
 
-    return () => clearInterval(interval)
+    return () => { clearTimeout(timeout); clearInterval(interval) }
   }, [])
 
   const handleLogout = () => {

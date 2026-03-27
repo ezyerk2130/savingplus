@@ -120,8 +120,8 @@ func Load() *Config {
 			TTL:    getEnvDuration("OTP_TTL", 5*time.Minute),
 		},
 		Rate: RateConfig{
-			PerSecond: getEnvInt("RATE_LIMIT_PER_SECOND", 5),
-			PerMinute: getEnvInt("RATE_LIMIT_PER_MINUTE", 100),
+			PerSecond: getEnvInt("RATE_LIMIT_PER_SECOND", 15),
+			PerMinute: getEnvInt("RATE_LIMIT_PER_MINUTE", 200),
 		},
 		Payment: PaymentConfig{
 			Gateway:     getEnv("PAYMENT_GATEWAY", "mock"),
