@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [balance, setBalance] = useState<WalletBalance | null>(null)
   const [recentTxns, setRecentTxns] = useState<Transaction[]>([])
   const [profile, setProfile] = useState<User | null>(null)
-  const [showBalance, setShowBalance] = useState(true)
+  const [showBalance, setShowBalance] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const setUser = useAuthStore((s) => s.setUser)
