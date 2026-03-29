@@ -1,0 +1,55 @@
+name: savingplus
+description: SavingPlus - Smart savings and investment platform for Tanzania
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management
+  provider: ^6.1.2
+
+  # HTTP & networking
+  dio: ^5.4.3+1
+  flutter_secure_storage: ^9.2.2
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # UI
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.1
+
+  # Forms & validation
+  flutter_form_builder: ^9.3.0
+  form_builder_validators: ^10.0.1
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.4.0
+  url_launcher: ^6.3.0
+  image_picker: ^1.1.2
+  local_auth: ^2.2.0
+  shared_preferences: ^2.2.3
+
+  # Notifications
+  fluttertoast: ^8.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.11
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
