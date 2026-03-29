@@ -27,10 +27,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _isLoading = true);
     try {
       final res = await _api.get('/notifications');
-      final list = (res.data as List<dynamic>?) ?? [];
+      final data = res.data as Map<String, dynamic>;
+      final list = (data['notifications'] as List<dynamic>?) ?? [];
       if (!mounted) return;
       setState(() {
-        _notifications = list.cast<Map<String, dynamic>>();
+        _notifications = list.map((e) => e as Map<String, dynamic>).toList();
       });
     } on DioException catch (e) {
       if (!mounted) return;

@@ -6,14 +6,24 @@ String formatMoney(String amount, {String currency = 'TZS'}) {
   return '$currency $formatted';
 }
 
-String formatDate(String dateStr) {
-  final date = DateTime.parse(dateStr);
-  return DateFormat('MMM dd, yyyy').format(date);
+String formatDate(String? dateStr) {
+  if (dateStr == null || dateStr.isEmpty) return '-';
+  try {
+    final date = DateTime.parse(dateStr);
+    return DateFormat('MMM dd, yyyy').format(date);
+  } catch (_) {
+    return dateStr;
+  }
 }
 
-String formatDateTime(String dateStr) {
-  final date = DateTime.parse(dateStr);
-  return DateFormat('MMM dd, yyyy HH:mm').format(date);
+String formatDateTime(String? dateStr) {
+  if (dateStr == null || dateStr.isEmpty) return '-';
+  try {
+    final date = DateTime.parse(dateStr);
+    return DateFormat('MMM dd, yyyy HH:mm').format(date);
+  } catch (_) {
+    return dateStr;
+  }
 }
 
 String formatPhone(String phone) {

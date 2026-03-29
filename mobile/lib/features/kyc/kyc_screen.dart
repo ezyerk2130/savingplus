@@ -19,6 +19,8 @@ class _KycScreenState extends State<KycScreen> {
   final ImagePicker _picker = ImagePicker();
 
   List<Map<String, dynamic>> _documents = [];
+  String _kycStatus = 'pending';
+  int _kycTier = 0;
   bool _isLoading = true;
   bool _isUploading = false;
   String _documentType = 'national_id';
@@ -40,11 +42,14 @@ class _KycScreenState extends State<KycScreen> {
   Future<void> _loadDocuments() async {
     setState(() => _isLoading = true);
     try {
-      final res = await _api.get('/kyc/documents');
-      final list = (res.data as List<dynamic>?) ?? [];
+      final res = await _api.get('/kyc/status');
+      final data = res.data as Map<String, dynamic>;
+      final list = (data['documents'] as List<dynamic>?) ?? [];
       if (!mounted) return;
       setState(() {
-        _documents = list.cast<Map<String, dynamic>>();
+        _kycStatus = data['kyc_status'] as String? ?? 'pending';
+        _kycTier = (data['kyc_tier'] as num?)?.toInt() ?? 0;
+        _documents = list.map((e) => e as Map<String, dynamic>).toList();
       });
     } catch (_) {} finally {
       if (mounted) setState(() => _isLoading = false);
@@ -73,7 +78,7 @@ class _KycScreenState extends State<KycScreen> {
         'file': await MultipartFile.fromFile(_selectedFile!.path, filename: _selectedFile!.name),
       });
 
-      await ApiClient().post('/kyc/upload', data: formData);
+      await _api.post('/kyc/upload', data: formData);
 
       if (!mounted) return;
       setState(() => _selectedFile = null);
@@ -124,7 +129,7 @@ class _KycScreenState extends State<KycScreen> {
   Widget _buildStatusCard(user) {
     Color statusColor;
     IconData statusIcon;
-    switch (user?.kycStatus ?? 'pending') {
+    switch (_kycStatus) {
       case 'approved':
         statusColor = Colors.green;
         statusIcon = Icons.check_circle;
@@ -158,12 +163,12 @@ class _KycScreenState extends State<KycScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'KYC Status: ${(user?.kycStatus ?? 'pending').toUpperCase()}',
+                  'KYC Status: ${_kycStatus.toUpperCase()}',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: statusColor),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Current Tier: ${user?.kycTier ?? 0}',
+                  'Current Tier: $_kycTier',
                   style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
