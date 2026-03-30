@@ -1,0 +1,3 @@
+ALTER TABLE savings_groups DROP COLUMN IF EXISTS invite_code;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_secret;
+ALTER TABLE users DROP COLUMN IF EXISTS mfa_enabled;

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pquerna/otp/totp"
 
 	apperr "github.com/savingplus/backend/internal/errors"
 	"github.com/savingplus/backend/pkg/config"
@@ -458,4 +459,93 @@ func (h *Handler) Logout(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
+// Enable2FA generates a TOTP secret for the user and returns it.
+func (h *Handler) Enable2FA(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+	phone := c.GetString("phone")
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      h.cfg.Security.TOTPIssuer,
+		AccountName: phone,
+	})
+	if err != nil {
+		log.WithError(err).Error("Failed to generate TOTP key")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	if _, err = h.db.ExecContext(c,
+		`UPDATE users SET mfa_secret = $1, mfa_enabled = TRUE WHERE id = $2`,
+		key.Secret(), userID,
+	); err != nil {
+		log.WithError(err).Error("Failed to save 2FA secret")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"secret":  key.Secret(),
+		"url":     key.URL(),
+		"message": "2FA enabled. Scan the QR code with your authenticator app.",
+	})
+}
+
+// Verify2FA verifies a TOTP code for the user.
+func (h *Handler) Verify2FA(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Code string `json:"code" binding:"required,len=6"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.ErrBadRequest.Message, "detail": err.Error()})
+		return
+	}
+
+	var mfaSecret sql.NullString
+	err := h.db.QueryRowContext(c, `SELECT mfa_secret FROM users WHERE id = $1`, userID).Scan(&mfaSecret)
+	if err != nil || !mfaSecret.Valid {
+		log.WithError(err).Error("Failed to get 2FA secret")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "2FA is not enabled"})
+		return
+	}
+
+	valid := totp.Validate(req.Code, mfaSecret.String)
+	if !valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid 2FA code"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "2FA verified", "verified": true})
+}
+
+// Disable2FA disables 2FA for the user.
+func (h *Handler) Disable2FA(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+
+	if _, err := h.db.ExecContext(c,
+		`UPDATE users SET mfa_secret = NULL, mfa_enabled = FALSE WHERE id = $1`,
+		userID,
+	); err != nil {
+		log.WithError(err).Error("Failed to disable 2FA")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "2FA disabled"})
+}
+
+// Get2FAStatus returns the user's 2FA status.
+func (h *Handler) Get2FAStatus(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var mfaEnabled bool
+	h.db.QueryRowContext(c, `SELECT mfa_enabled FROM users WHERE id = $1`, userID).Scan(&mfaEnabled)
+
+	c.JSON(http.StatusOK, gin.H{"mfa_enabled": mfaEnabled})
 }

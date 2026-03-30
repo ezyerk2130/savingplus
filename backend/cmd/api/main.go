@@ -157,6 +157,10 @@ func main() {
 			protected.POST("/auth/change-password", authHandler.ChangePassword)
 			protected.POST("/auth/change-pin", authHandler.ChangePIN)
 			protected.POST("/auth/logout", authHandler.Logout)
+				protected.POST("/auth/2fa/enable", authHandler.Enable2FA)
+				protected.POST("/auth/2fa/verify", authHandler.Verify2FA)
+				protected.POST("/auth/2fa/disable", authHandler.Disable2FA)
+				protected.GET("/auth/2fa/status", authHandler.Get2FAStatus)
 
 			// User profile
 			protected.GET("/profile", userHandler.GetProfile)
@@ -207,6 +211,8 @@ func main() {
 			protected.POST("/groups/:id/leave", groupHandler.LeaveGroup)
 			protected.POST("/groups/:id/contribute", groupHandler.Contribute)
 			protected.POST("/groups/:id/start", groupHandler.StartGroup)
+				protected.POST("/groups/join-by-code", groupHandler.JoinByCode)
+				protected.GET("/groups/lookup", groupHandler.LookupByCode)
 
 			// Insurance
 			protected.GET("/insurance/products", insuranceHandler.ListProducts)
@@ -378,6 +384,7 @@ func runMigrations(db *sql.DB) error {
 	files := []string{
 		"migrations/000001_init.up.sql",
 		"migrations/000002_product_features.up.sql",
+		"migrations/000003_group_invite_user_2fa.up.sql",
 	}
 	for _, f := range files {
 		migration, err := os.ReadFile(f)

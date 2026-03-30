@@ -43,9 +43,11 @@ type GroupResponse struct {
 	CurrentRound       int     `json:"current_round"`
 	TotalRounds        *int    `json:"total_rounds,omitempty"`
 	Status             string  `json:"status"`
+	InviteCode         string  `json:"invite_code"`
 	StartDate          *string `json:"start_date,omitempty"`
 	NextPayoutDate     *string `json:"next_payout_date,omitempty"`
 	CreatedAt          string  `json:"created_at"`
+	MemberCount        int     `json:"member_count"`
 }
 
 type MemberResponse struct {
@@ -121,11 +123,16 @@ func (h *Handler) CreateGroup(c *gin.Context) {
 		return
 	}
 
+	// Fetch the generated invite_code
+	var inviteCode string
+	h.db.QueryRowContext(c, `SELECT invite_code FROM savings_groups WHERE id = $1`, groupID).Scan(&inviteCode)
+
 	c.JSON(http.StatusCreated, gin.H{
-		"group_id": groupID.String(),
-		"name":     req.Name,
-		"type":     req.Type,
-		"message":  "Group created successfully. You are the admin.",
+		"group_id":    groupID.String(),
+		"name":        req.Name,
+		"type":        req.Type,
+		"invite_code": inviteCode,
+		"message":     "Group created successfully. Share the invite code with members.",
 	})
 }
 
@@ -136,7 +143,8 @@ func (h *Handler) ListGroups(c *gin.Context) {
 
 	rows, err := h.db.QueryContext(c,
 		`SELECT g.id, g.name, g.description, g.type, g.currency, g.contribution_amount, g.frequency,
-		 g.max_members, g.current_round, g.total_rounds, g.status, g.start_date, g.next_payout_date, g.created_at
+		 g.max_members, g.current_round, g.total_rounds, g.status, g.invite_code, g.start_date, g.next_payout_date, g.created_at,
+		 (SELECT COUNT(*) FROM group_members gm2 WHERE gm2.group_id = g.id AND gm2.status = 'active') AS member_count
 		 FROM savings_groups g
 		 JOIN group_members gm ON g.id = gm.group_id
 		 WHERE gm.user_id = $1 AND gm.status = 'active'
@@ -159,7 +167,7 @@ func (h *Handler) ListGroups(c *gin.Context) {
 		var contribAmt float64
 
 		err := rows.Scan(&g.ID, &g.Name, &desc, &g.Type, &g.Currency, &contribAmt, &g.Frequency,
-			&g.MaxMembers, &g.CurrentRound, &totalRounds, &g.Status, &startDate, &nextPayout, &g.CreatedAt)
+			&g.MaxMembers, &g.CurrentRound, &totalRounds, &g.Status, &g.InviteCode, &startDate, &nextPayout, &g.CreatedAt, &g.MemberCount)
 		if err != nil {
 			log.WithError(err).Error("Failed to scan group row")
 			continue
@@ -777,4 +785,132 @@ func (h *Handler) ListAllGroups(c *gin.Context) {
 	}
 
 	response.PagedList(c, "groups", response.EmptySlice(groups), p, total)
+}
+
+// JoinByCode allows a user to join a group using a 6-digit invite code.
+func (h *Handler) JoinByCode(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+
+	var req struct {
+		InviteCode string `json:"invite_code" binding:"required,len=6"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": apperr.ErrBadRequest.Message, "detail": err.Error()})
+		return
+	}
+
+	// Find group by invite code
+	var groupID, groupStatus string
+	var maxMembers int
+	err := h.db.QueryRowContext(c,
+		`SELECT id, status, max_members FROM savings_groups WHERE invite_code = $1`,
+		req.InviteCode,
+	).Scan(&groupID, &groupStatus, &maxMembers)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid invite code. No group found."})
+		return
+	}
+	if err != nil {
+		log.WithError(err).Error("Failed to find group by invite code")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	if groupStatus != "forming" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This group is no longer accepting new members"})
+		return
+	}
+
+	// Check if already a member
+	var exists bool
+	h.db.QueryRowContext(c,
+		`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2 AND status = 'active')`,
+		groupID, userID,
+	).Scan(&exists)
+	if exists {
+		c.JSON(http.StatusConflict, gin.H{"error": "You are already a member of this group"})
+		return
+	}
+
+	// Check member count
+	var memberCount int
+	h.db.QueryRowContext(c,
+		`SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND status = 'active'`,
+		groupID,
+	).Scan(&memberCount)
+	if memberCount >= maxMembers {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This group is full"})
+		return
+	}
+
+	// Join
+	memberID := uuid.New()
+	payoutPos := memberCount + 1
+	if _, err = h.db.ExecContext(c,
+		`INSERT INTO group_members (id, group_id, user_id, role, payout_position) VALUES ($1, $2, $3, 'member', $4)`,
+		memberID, groupID, userID, payoutPos,
+	); err != nil {
+		log.WithError(err).Error("Failed to join group by code")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	// Return group preview
+	var name, groupType string
+	var contribAmt float64
+	var frequency string
+	h.db.QueryRowContext(c,
+		`SELECT name, type, contribution_amount, frequency FROM savings_groups WHERE id = $1`,
+		groupID,
+	).Scan(&name, &groupType, &contribAmt, &frequency)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":             "Successfully joined the group!",
+		"group_id":            groupID,
+		"group_name":          name,
+		"type":                groupType,
+		"contribution_amount": response.FormatMoney(contribAmt),
+		"frequency":           frequency,
+		"member_count":        memberCount + 1,
+	})
+}
+
+// LookupByCode returns group preview info without joining (for the "Join a Circle" bottom sheet).
+func (h *Handler) LookupByCode(c *gin.Context) {
+	code := c.Query("code")
+	if len(code) != 6 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invite code must be 6 digits"})
+		return
+	}
+
+	var groupID, name, groupType, frequency, status string
+	var contribAmt float64
+	var maxMembers int
+	err := h.db.QueryRowContext(c,
+		`SELECT id, name, type, contribution_amount, frequency, max_members, status FROM savings_groups WHERE invite_code = $1`,
+		code,
+	).Scan(&groupID, &name, &groupType, &contribAmt, &frequency, &maxMembers, &status)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No group found with this code"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	var memberCount int
+	h.db.QueryRowContext(c, `SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND status = 'active'`, groupID).Scan(&memberCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"group_id":            groupID,
+		"name":                name,
+		"type":                groupType,
+		"contribution_amount": response.FormatMoney(contribAmt),
+		"frequency":           frequency,
+		"max_members":         maxMembers,
+		"member_count":        memberCount,
+		"status":              status,
+	})
 }
