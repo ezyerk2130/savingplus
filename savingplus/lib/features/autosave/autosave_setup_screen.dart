@@ -15,13 +15,13 @@ class AutoSaveSetupScreen extends StatefulWidget {
 
 class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
   final _amountController = TextEditingController(text: '5,000');
-  String _frequency = 'daily'; // daily, weekly, monthly
+  String _frequency = 'daily';
   DateTime _startDate = DateTime.now();
   bool _autoDebitMpesa = true;
   bool _isLoading = false;
   String? _error;
 
-  final String _mpesaNumber = '0744 123 456';
+  final String _mpesaNumber = '+255 0744 XXX XXX';
 
   @override
   void dispose() {
@@ -36,12 +36,9 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
 
   double get _monthlyAmount {
     switch (_frequency) {
-      case 'daily':
-        return _amount * 30;
-      case 'weekly':
-        return _amount * 4;
-      default:
-        return _amount;
+      case 'daily': return _amount * 30;
+      case 'weekly': return _amount * 4;
+      default: return _amount;
     }
   }
 
@@ -63,20 +60,15 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
       setState(() => _error = 'Enter a valid amount');
       return;
     }
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
 
     try {
       await ApiClient.instance.post('/savings/plan', data: {
-        'name': '$_frequency AutoSave',
+        'name': '${_frequency[0].toUpperCase()}${_frequency.substring(1)} AutoSave',
         'type': 'flexible',
-        'target_amount': _monthlyAmount * 12,
         'auto_debit': _autoDebitMpesa,
-        'frequency': _frequency,
-        'debit_amount': _amount,
-        'start_date': _startDate.toIso8601String(),
+        'auto_debit_amount': _amount,
+        'auto_debit_frequency': _frequency,
       });
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -113,92 +105,103 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.trending_up, color: Colors.white, size: 20),
-                  const SizedBox(width: 10),
-                  Text(
-                    'You earn 12% p.a. \u2014 interest added daily',
-                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white),
+                  Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.trending_up, color: Colors.white, size: 18),
                   ),
+                  const SizedBox(width: 10),
+                  Text('You earn 12% p.a. \u2014 interest added daily',
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white)),
                 ],
               ),
             ),
-
             const SizedBox(height: 28),
-            Text('How much do you want to save?',
-                style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-            const SizedBox(height: 12),
 
-            // Amount input
+            // Amount section
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.ghostBorder),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('TZS', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onSurfaceVariant)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _amountController,
-                      keyboardType: TextInputType.number,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.onBackground),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
-                      ),
-                      onChanged: (_) => setState(() {}),
+                  Text('How much do you want to save?',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                  const SizedBox(height: 14),
+
+                  // Amount input
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.ghostBorder),
                     ),
+                    child: Row(
+                      children: [
+                        Text('TZS', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onSurfaceVariant)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.onBackground),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none, filled: false,
+                              contentPadding: EdgeInsets.zero, isDense: true,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Frequency chips
+                  Row(
+                    children: ['daily', 'weekly', 'monthly'].map((freq) {
+                      final selected = _frequency == freq;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: freq == 'monthly' ? 0 : 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _frequency = freq),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: selected ? AppColors.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(100),
+                                border: Border.all(color: selected ? AppColors.primary : AppColors.ghostBorder),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                freq[0].toUpperCase() + freq.substring(1),
+                                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500,
+                                    color: selected ? Colors.white : AppColors.onSurfaceVariant),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'That\'s ${formatMoney(_monthlyAmount)}/month at this rate',
+                    style: GoogleFonts.inter(fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.onSurfaceVariant),
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // Frequency selector
-            Row(
-              children: ['daily', 'weekly', 'monthly'].map((freq) {
-                final selected = _frequency == freq;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: freq == 'monthly' ? 0 : 8),
-                    child: GestureDetector(
-                      onTap: () => setState(() => _frequency = freq),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(100),
-                          border: Border.all(color: selected ? AppColors.primary : AppColors.ghostBorder),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          freq[0].toUpperCase() + freq.substring(1),
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: selected ? AppColors.primary : AppColors.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-
-            const SizedBox(height: 12),
-            Text(
-              'That\'s ${formatMoney(_monthlyAmount)}/month at this rate',
-              style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant),
-            ),
-
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
 
             // Start date
             Text('When should we start?',
@@ -218,7 +221,9 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
                     const Icon(Icons.calendar_today_outlined, size: 20, color: AppColors.onSurfaceVariant),
                     const SizedBox(width: 12),
                     Text(
-                      _startDate.day == DateTime.now().day ? 'Today, ${DateFormat('dd MMM yyyy').format(_startDate)}' : DateFormat('dd MMM yyyy').format(_startDate),
+                      _startDate.day == DateTime.now().day && _startDate.month == DateTime.now().month
+                          ? 'Today, ${DateFormat('dd MMM yyyy').format(_startDate)}'
+                          : DateFormat('dd MMM yyyy').format(_startDate),
                       style: GoogleFonts.inter(fontSize: 14, color: AppColors.onBackground),
                     ),
                     const Spacer(),
@@ -227,10 +232,9 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
 
-            const SizedBox(height: 28),
-
-            // M-Pesa auto debit toggle
+            // M-Pesa toggle
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -249,7 +253,7 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
                             Text('AutoSave from my M-Pesa',
                                 style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.onBackground)),
                             const SizedBox(height: 4),
-                            Text('Automatic deductions via M-Pesa',
+                            Text('Automate your success',
                                 style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant)),
                           ],
                         ),
@@ -273,10 +277,9 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
                       child: Row(
                         children: [
                           Container(
-                            width: 32,
-                            height: 32,
+                            width: 32, height: 32,
                             decoration: BoxDecoration(
-                              color: AppColors.primary,
+                              color: const Color(0xFFE53935),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             alignment: Alignment.center,
@@ -299,10 +302,50 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
                 style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant),
               ),
             ],
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 24),
+            // Withdrawal windows card with orange left bar
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.cardWhite,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.ghostBorder),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 4,
+                    height: 140,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9800),
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Withdrawal Windows',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                          const SizedBox(height: 8),
+                          ..._buildQuarterlyDates(),
+                          const SizedBox(height: 8),
+                          Text('Early withdrawal: 3.5% fee',
+                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: const Color(0xFFFF9800))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
 
-            // Withdrawal windows
+            // 12-Month Projection card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -314,61 +357,30 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Withdrawal Windows',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-                  const SizedBox(height: 8),
-                  Text('Free withdrawals on these dates:',
-                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  ..._buildQuarterlyDates(),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Early withdrawal incurs a 2.5% fee on the withdrawn amount.',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppColors.warning),
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 18, color: Color(0xFFFFB300)),
+                      const SizedBox(width: 8),
+                      Text('12-Month Projection',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                    ],
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // 12-month projection
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: AppGradients.primaryGradient,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('12-Month Projection',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.8))),
-                  const SizedBox(height: 8),
-                  Text(
-                    formatMoney(_projectedTotal + _projectedInterest),
-                    style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
+                  const SizedBox(height: 12),
+                  Text(formatMoney(_projectedTotal + _projectedInterest),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)),
                   const SizedBox(height: 4),
-                  Text(
-                    'Principal: ${formatMoney(_projectedTotal)} + Interest: ${formatMoney(_projectedInterest)}',
-                    style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withValues(alpha: 0.8)),
-                  ),
+                  Text('Principal: ${formatMoney(_projectedTotal)} + Interest: ${formatMoney(_projectedInterest)}',
+                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
 
             if (_error != null) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
                 child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 13)),
               ),
               const SizedBox(height: 16),
@@ -400,7 +412,7 @@ class _AutoSaveSetupScreenState extends State<AutoSaveSetupScreen> {
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline, size: 16, color: AppColors.primary),
+          const Icon(Icons.check_circle_outline, size: 14, color: AppColors.primary),
           const SizedBox(width: 8),
           Text(d, style: GoogleFonts.inter(fontSize: 13, color: AppColors.onBackground)),
         ],

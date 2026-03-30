@@ -28,10 +28,7 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
     try {
       final res = await ApiClient.instance.get('/savings/plans/${widget.planId}');
       _plan = res.data is Map<String, dynamic> ? res.data : (res.data['plan'] ?? {});
@@ -100,7 +97,7 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
                       children: [
                         const SizedBox(height: 16),
 
-                        // Balance card
+                        // Green gradient balance card
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
@@ -111,99 +108,122 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(100),
-                                ),
-                                child: Text(
-                                  isActive ? 'ACTIVE' : 'PAUSED',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
-                                ),
+                              // Status pill + title row
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(100),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          width: 6, height: 6,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isActive ? AppColors.primary : AppColors.warning,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(isActive ? 'ACTIVE' : 'PAUSED',
+                                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600,
+                                                color: isActive ? AppColors.primary : AppColors.warning)),
+                                      ],
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text('Daily AutoSave',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500,
+                                          color: Colors.white.withValues(alpha: 0.8))),
+                                ],
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 16),
+
+                              // Balance
                               Text('Current Balance',
                                   style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
                               const SizedBox(height: 4),
                               Text(
                                 formatMoney(_plan?['current_amount'] ?? _plan?['balance'] ?? 0),
-                                style: GoogleFonts.plusJakartaSans(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Progress section
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardWhite,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.ghostBorder),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('PROGRESS TO 31 MAR WITHDRAWAL',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceVariant, letterSpacing: 0.5)),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: LinearProgressIndicator(
-                                        value: 0.65,
-                                        backgroundColor: AppColors.surfaceContainerLow,
-                                        valueColor: const AlwaysStoppedAnimation(AppColors.primary),
-                                        minHeight: 8,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text('65%', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                                ],
+                                style: moneyStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white),
                               ),
                               const SizedBox(height: 16),
+
+                              // Progress section
                               Row(
                                 children: [
-                                  const Icon(Icons.access_time, size: 16, color: AppColors.onSurfaceVariant),
+                                  Text('PROGRESS TO 31 MAR WITHDRAWAL',
+                                      style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w600,
+                                          color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+                                  const Spacer(),
+                                  Text('65%',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: 0.65,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                  valueColor: const AlwaysStoppedAnimation(Colors.white),
+                                  minHeight: 6,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Divider
+                              Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
+                              const SizedBox(height: 12),
+
+                              // Next deduction
+                              Row(
+                                children: [
+                                  Icon(Icons.access_time, size: 16, color: Colors.white.withValues(alpha: 0.8)),
                                   const SizedBox(width: 8),
                                   Text('Next deduction in 6 hours',
-                                      style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant)),
+                                      style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.8))),
                                 ],
                               ),
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 16),
 
                         // Pause button
                         SizedBox(
                           width: double.infinity,
                           height: 48,
-                          child: OutlinedButton(
+                          child: OutlinedButton.icon(
                             onPressed: _isPausing ? null : _togglePause,
-                            child: _isPausing
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : Text(isActive ? 'Pause AutoSave' : 'Resume AutoSave'),
+                            icon: _isPausing
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : Icon(
+                                    isActive ? Icons.pause : Icons.play_arrow,
+                                    size: 18,
+                                    color: isActive ? AppColors.error : AppColors.primary,
+                                  ),
+                            label: Text(isActive ? 'Pause AutoSave' : 'Resume AutoSave'),
+                            style: OutlinedButton.styleFrom(
+                              shape: const StadiumBorder(),
+                              side: BorderSide(color: isActive ? AppColors.error.withValues(alpha: 0.3) : AppColors.primary.withValues(alpha: 0.3)),
+                            ),
                           ),
                         ),
-
                         const SizedBox(height: 12),
+
+                        // Change daily amount link
                         Center(
                           child: TextButton.icon(
                             onPressed: () {},
-                            icon: const Icon(Icons.edit_outlined, size: 16),
-                            label: const Text('Change Daily Amount'),
+                            icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                            label: Text('Change Daily Amount',
+                                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.primary)),
                           ),
                         ),
-
                         const SizedBox(height: 24),
 
                         // Recent activity
@@ -212,7 +232,10 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
                           children: [
                             Text('Recent Activity',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-                            TextButton(onPressed: () {}, child: const Text('VIEW ALL')),
+                            TextButton(
+                              onPressed: () {},
+                              child: Text('VIEW ALL', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -266,13 +289,12 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 40, height: 40,
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.arrow_downward, color: AppColors.primary, size: 18),
+            child: const Icon(Icons.arrow_circle_down, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -287,14 +309,16 @@ class _AutoSaveDetailScreenState extends State<AutoSaveDetailScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(formatMoney(amount), style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.onBackground)),
+              Text('+ ${formatMoney(amount)}',
+                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.primary)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(status, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                child: Text(status,
+                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary)),
               ),
             ],
           ),

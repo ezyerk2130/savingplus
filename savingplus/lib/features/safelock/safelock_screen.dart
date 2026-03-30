@@ -14,8 +14,8 @@ class SafeLockScreen extends StatefulWidget {
 
 class _SafeLockScreenState extends State<SafeLockScreen> {
   final _amountController = TextEditingController(text: '500,000');
-  int _durationDays = 30;
-  double _sliderValue = 30;
+  int _durationDays = 90;
+  double _sliderValue = 90;
   bool _isLoading = false;
   String? _error;
   double _availableBalance = 825000;
@@ -53,7 +53,6 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
   }
 
   double get _earnings => _amount * _interestRate * _durationDays / 365;
-
   String get _interestPercent => '${(_interestRate * 100).toStringAsFixed(1)}%';
 
   Future<void> _lockFunds() async {
@@ -61,17 +60,14 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
       setState(() => _error = 'Enter a valid amount within your available balance');
       return;
     }
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
 
     try {
       await ApiClient.instance.post('/savings/plan', data: {
         'name': 'SafeLock $_durationDays days',
         'type': 'locked',
-        'target_amount': _amount,
-        'duration_days': _durationDays,
+        'initial_amount': _amount,
+        'lock_duration_days': _durationDays,
       });
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -105,63 +101,82 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
           children: [
             const SizedBox(height: 16),
 
-            // Info banner
+            // Blue gradient banner
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1565C0).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.15)),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: Color(0xFF1565C0), size: 20),
-                  const SizedBox(width: 10),
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lock, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       'Interest paid upfront to your Flex wallet when you lock.',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: const Color(0xFF1565C0)),
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white, height: 1.4),
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 28),
-            Text('How much to lock?',
-                style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-            const SizedBox(height: 12),
 
-            // Amount input
+            // Amount heading with TZS chip
+            Row(
+              children: [
+                Expanded(
+                  child: Text('How much to lock?',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('TZS', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Amount display
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: AppColors.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.ghostBorder),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('TZS', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primary)),
-                  ),
-                  const SizedBox(width: 12),
+                  Text('TZS', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _amountController,
                       keyboardType: TextInputType.number,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.onBackground),
+                      style: moneyStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.onBackground),
                       decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
+                        border: InputBorder.none, filled: false,
+                        contentPadding: EdgeInsets.zero, isDense: true,
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -170,26 +185,26 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
               ),
             ),
             const SizedBox(height: 8),
+
+            // Available balance
             Row(
               children: [
-                Icon(Icons.check_circle, size: 16, color: _amount <= _availableBalance ? AppColors.primary : AppColors.error),
+                Icon(Icons.check_circle, size: 16,
+                    color: _amount <= _availableBalance ? AppColors.primary : AppColors.error),
                 const SizedBox(width: 6),
                 Text(
                   'Available: ${formatMoney(_availableBalance)}',
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: _amount <= _availableBalance ? AppColors.primary : AppColors.error,
-                  ),
+                  style: GoogleFonts.inter(fontSize: 13,
+                      color: _amount <= _availableBalance ? AppColors.primary : AppColors.error),
                 ),
               ],
             ),
-
             const SizedBox(height: 28),
 
-            // Lock duration
+            // Lock duration heading
             Text('Lock duration',
                 style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Duration chips
             Row(
@@ -206,18 +221,15 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: selected ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surfaceContainerLow,
+                          color: selected ? AppColors.primary : Colors.transparent,
                           borderRadius: BorderRadius.circular(100),
                           border: Border.all(color: selected ? AppColors.primary : AppColors.ghostBorder),
                         ),
                         alignment: Alignment.center,
                         child: Text(
                           '$days days',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: selected ? AppColors.primary : AppColors.onSurfaceVariant,
-                          ),
+                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500,
+                              color: selected ? Colors.white : AppColors.onSurfaceVariant),
                         ),
                       ),
                     ),
@@ -225,8 +237,9 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
                 );
               }).toList(),
             ),
-
             const SizedBox(height: 16),
+
+            // Slider
             SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: AppColors.primary,
@@ -237,9 +250,7 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
               ),
               child: Slider(
                 value: _sliderValue,
-                min: 10,
-                max: 365,
-                divisions: 71,
+                min: 10, max: 365, divisions: 71,
                 label: '${_sliderValue.round()} days',
                 onChanged: (v) => setState(() {
                   _sliderValue = v;
@@ -250,105 +261,145 @@ class _SafeLockScreenState extends State<SafeLockScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('10 days', style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                Text('$_durationDays days selected', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary)),
-                Text('365 days', style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                Text('10 Days', style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text('Custom: $_durationDays Days',
+                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primary)),
+                ),
+                Text('365 Days', style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
               ],
             ),
-
             const SizedBox(height: 24),
 
-            // Earnings card
+            // Green earnings card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                gradient: AppGradients.primaryGradient,
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('YOU WILL EARN',
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.8), letterSpacing: 0.5)),
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600,
+                          color: AppColors.onSurfaceVariant, letterSpacing: 0.5)),
                   const SizedBox(height: 8),
-                  Text(
-                    formatMoney(_earnings),
-                    style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$_interestPercent p.a.',
-                    style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.8)),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Paid to your Flex wallet immediately',
-                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white.withValues(alpha: 0.9)),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Early break warning
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.15)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 18),
-                      const SizedBox(width: 8),
-                      Text('EARLY BREAK WARNING',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.error, letterSpacing: 0.5)),
+                      Text(formatMoney(_earnings),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      const SizedBox(width: 10),
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Text('$_interestPercent p.a.',
+                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Your money will be locked for $_durationDays days. Breaking the lock early will incur a 5% penalty on the locked amount.',
-                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.error),
+                  Text('Paid to your Flex wallet immediately',
+                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Red warning card with left bar
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 4,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      color: AppColors.error,
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 16),
+                              const SizedBox(width: 6),
+                              Text('EARLY BREAK WARNING',
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600,
+                                      color: AppColors.error, letterSpacing: 0.5)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your money will be locked for $_durationDays days. Breaking the lock early will incur a 5% penalty on the locked amount.',
+                            style: GoogleFonts.inter(fontSize: 13, color: AppColors.error, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
 
             if (_error != null) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
                 child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 13)),
               ),
               const SizedBox(height: 16),
             ],
 
+            // Lock button
             GradientButton(
               onPressed: _isLoading ? null : _lockFunds,
               child: _isLoading
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : Text('Lock ${formatMoney(_amount)} now'),
             ),
-
             const SizedBox(height: 12),
+
+            // Footer
             Center(
-              child: Text(
-                'You\'ll receive ${formatMoney(_earnings)} in your Flex wallet immediately',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.bolt, size: 16, color: Color(0xFFFFB300)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      'You\'ll receive ${formatMoney(_earnings)} immediately',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 32),
