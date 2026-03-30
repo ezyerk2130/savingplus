@@ -26,6 +26,15 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleBiometricLogin() async {
+    final auth = context.read<AuthProvider>();
+    await auth.biometricLogin();
+    if (!mounted) return;
+    if (auth.isAuthenticated) {
+      context.go('/home');
+    }
+  }
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     final phone = '+255${_phoneController.text.trim()}';
@@ -187,15 +196,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
 
                 // Fingerprint
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.fingerprint, size: 22),
-                    label: const Text('Use fingerprint'),
+                if (auth.canUseBiometric)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: auth.isLoading ? null : _handleBiometricLogin,
+                      icon: const Icon(Icons.fingerprint, size: 22),
+                      label: const Text('Use fingerprint'),
+                    ),
                   ),
-                ),
+                if (!auth.canUseBiometric)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: Icon(Icons.fingerprint, size: 22, color: AppColors.onSurfaceVariant.withValues(alpha: 0.4)),
+                      label: Text('Use fingerprint', style: TextStyle(color: AppColors.onSurfaceVariant.withValues(alpha: 0.4))),
+                    ),
+                  ),
                 const SizedBox(height: 12),
 
                 // Google

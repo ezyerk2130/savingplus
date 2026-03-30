@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
 import '../api/api_client.dart';
 import '../api/token_storage.dart';
 import '../models/user.dart';
@@ -16,8 +18,21 @@ class AuthProvider extends ChangeNotifier {
 
   final _api = ApiClient.instance;
   final _tokenStorage = TokenStorage();
+  final _localAuth = LocalAuthentication();
+  bool _biometricAvailable = false;
+  bool _hasSavedCreds = false;
+
+  bool get canUseBiometric => _biometricAvailable && _hasSavedCreds;
 
   Future<void> init() async {
+    // Check biometric availability
+    try {
+      _biometricAvailable = await _localAuth.canCheckBiometrics || await _localAuth.isDeviceSupported();
+      _hasSavedCreds = await _tokenStorage.hasSavedCredentials();
+    } catch (_) {
+      _biometricAvailable = false;
+    }
+
     final hasTokens = await _tokenStorage.hasTokens();
     if (hasTokens) {
       try {
@@ -27,8 +42,8 @@ class AuthProvider extends ChangeNotifier {
         await _tokenStorage.clearTokens();
         _isAuthenticated = false;
       }
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> login(String phone, String password) async {
@@ -42,9 +57,65 @@ class AuthProvider extends ChangeNotifier {
         'password': password,
       });
       await _tokenStorage.saveTokens(res.data['access_token'], res.data['refresh_token']);
+      // Save credentials for biometric login next time
+      await _tokenStorage.saveCredentials(phone, password);
+      _hasSavedCreds = true;
       await loadProfile();
       _isAuthenticated = true;
       _error = null;
+    } catch (e) {
+      _error = ApiClient.getErrorMessage(e, 'Login failed');
+      _isAuthenticated = false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Authenticate with fingerprint/face, then auto-login with saved credentials.
+  Future<void> biometricLogin() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Step 1: Biometric authentication
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Scan your fingerprint to log in to SavingPlus',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!authenticated) {
+        _error = 'Biometric authentication failed';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Step 2: Get saved credentials
+      final creds = await _tokenStorage.getSavedCredentials();
+      if (creds == null) {
+        _error = 'No saved credentials. Please log in with your password first.';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Step 3: Login with saved credentials
+      final res = await _api.post('/auth/login', data: {
+        'phone': creds['phone'],
+        'password': creds['password'],
+      });
+      await _tokenStorage.saveTokens(res.data['access_token'], res.data['refresh_token']);
+      await loadProfile();
+      _isAuthenticated = true;
+      _error = null;
+    } on PlatformException catch (e) {
+      _error = 'Biometric error: ${e.message}';
+      _isAuthenticated = false;
     } catch (e) {
       _error = ApiClient.getErrorMessage(e, 'Login failed');
       _isAuthenticated = false;
