@@ -196,26 +196,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
 
                 // Fingerprint
-                if (auth.canUseBiometric)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: auth.isLoading ? null : _handleBiometricLogin,
-                      icon: const Icon(Icons.fingerprint, size: 22),
-                      label: const Text('Use fingerprint'),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: auth.isLoading ? null : (auth.canUseBiometric ? _handleBiometricLogin : null),
+                    icon: Icon(Icons.fingerprint, size: 22,
+                      color: auth.canUseBiometric ? AppColors.primary : AppColors.onSurfaceVariant.withValues(alpha: 0.4)),
+                    label: Text(
+                      auth.canUseBiometric
+                        ? (auth.hasSavedCredentials ? 'Use fingerprint' : 'Use fingerprint (log in first)')
+                        : 'Fingerprint not available',
                     ),
                   ),
-                if (!auth.canUseBiometric)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: null,
-                      icon: Icon(Icons.fingerprint, size: 22, color: AppColors.onSurfaceVariant.withValues(alpha: 0.4)),
-                      label: Text('Use fingerprint', style: TextStyle(color: AppColors.onSurfaceVariant.withValues(alpha: 0.4))),
-                    ),
-                  ),
+                ),
                 const SizedBox(height: 12),
 
                 // Google

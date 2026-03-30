@@ -22,7 +22,7 @@ class AuthProvider extends ChangeNotifier {
   bool _biometricAvailable = false;
   bool _hasSavedCreds = false;
 
-  bool get canUseBiometric => _biometricAvailable && _hasSavedCreds;
+  bool get canUseBiometric => _biometricAvailable;
 
   Future<void> init() async {
     // Check biometric availability
@@ -72,8 +72,16 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  bool get hasSavedCredentials => _hasSavedCreds;
+
   /// Authenticate with fingerprint/face, then auto-login with saved credentials.
   Future<void> biometricLogin() async {
+    if (!_hasSavedCreds) {
+      _error = 'Please log in with your password first to enable fingerprint login.';
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -84,7 +92,7 @@ class AuthProvider extends ChangeNotifier {
         localizedReason: 'Scan your fingerprint to log in to SavingPlus',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: true,
+          biometricOnly: false,
         ),
       );
 
