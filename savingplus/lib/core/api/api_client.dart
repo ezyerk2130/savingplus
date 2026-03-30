@@ -1,8 +1,18 @@
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'token_storage.dart';
 
 class ApiConfig {
-  static String baseUrl = 'http://10.0.2.2:8080/api/v1';
+  /// Change this to your PC's WiFi IP for physical device testing.
+  /// Find it with: ipconfig (Windows) or ifconfig (Mac/Linux)
+  static const String _lanIp = '192.168.1.112';
+
+  static String get baseUrl {
+    if (kIsWeb) return 'http://localhost:8080/api/v1';
+    if (Platform.isAndroid) return 'http://$_lanIp:8080/api/v1';
+    return 'http://localhost:8080/api/v1'; // iOS simulator, desktop
+  }
 }
 
 class ApiException implements Exception {
@@ -22,12 +32,25 @@ class ApiClient {
   final TokenStorage _tokenStorage = TokenStorage();
 
   ApiClient._internal() {
+    final url = ApiConfig.baseUrl;
+    if (kDebugMode) print('[ApiClient] baseUrl: $url');
+
     _dio = Dio(BaseOptions(
-      baseUrl: ApiConfig.baseUrl,
+      baseUrl: url,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 30),
       headers: {'Content-Type': 'application/json'},
     ));
+
+    // Debug logging in dev mode
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        error: true,
+        logPrint: (o) => print('[API] $o'),
+      ));
+    }
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
@@ -38,6 +61,7 @@ class ApiClient {
         handler.next(options);
       },
       onError: (error, handler) async {
+        // Rate limited
         if (error.response?.statusCode == 429) {
           handler.reject(DioException(
             requestOptions: error.requestOptions,
@@ -45,6 +69,8 @@ class ApiClient {
           ));
           return;
         }
+
+        // Token expired — try refresh
         if (error.response?.statusCode == 401 && !error.requestOptions.extra.containsKey('retried')) {
           try {
             final refreshToken = await _tokenStorage.getRefreshToken();
@@ -65,6 +91,7 @@ class ApiClient {
             await _tokenStorage.clearTokens();
           }
         }
+
         handler.next(error);
       },
     ));
@@ -81,8 +108,18 @@ class ApiClient {
 
   Future<Response> delete(String path) => _dio.delete(path);
 
+  /// Extract user-friendly error message from any error type.
   static String getErrorMessage(dynamic error, [String fallback = 'Something went wrong']) {
     if (error is DioException) {
+      // Connection errors
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return 'Connection timed out. Check your internet.';
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return 'Cannot connect to server. Make sure the backend is running.';
+      }
+
       if (error.error is ApiException) return (error.error as ApiException).message;
       final data = error.response?.data;
       if (data is Map) return data['detail'] ?? data['error'] ?? fallback;
