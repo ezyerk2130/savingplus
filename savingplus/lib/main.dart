@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'core/providers/auth_provider.dart';
 import 'core/utils/theme.dart';
+import 'features/onboarding/splash_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -33,123 +35,53 @@ void main() {
   );
 }
 
-class SavingPlusApp extends StatefulWidget {
+class SavingPlusApp extends StatelessWidget {
   const SavingPlusApp({super.key});
 
   @override
-  State<SavingPlusApp> createState() => _SavingPlusAppState();
-}
-
-class _SavingPlusAppState extends State<SavingPlusApp> {
-  bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() async {
-      await context.read<AuthProvider>().init();
-      if (mounted) setState(() => _initialized = true);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-
-    final router = GoRouter(
-      initialLocation: '/login',
-      redirect: (context, state) {
-        if (!_initialized) return null;
-        final isAuth = auth.isAuthenticated;
-        final loc = state.matchedLocation;
-        final isAuthRoute = loc == '/login' || loc == '/register';
-        final isSplash = loc == '/splash';
-
-        if (!isAuth && !isAuthRoute && !isSplash) return '/login';
-        if (isAuth && isAuthRoute) return '/home';
-        return null;
-      },
-      routes: [
-        GoRoute(
-          path: '/login',
-          builder: (context, state) => const LoginScreen(),
-        ),
-        GoRoute(
-          path: '/register',
-          builder: (context, state) => const RegisterScreen(),
-        ),
-        ShellRoute(
-          builder: (context, state, child) => _AppShell(child: child),
-          routes: [
-            GoRoute(
-              path: '/home',
-              builder: (context, state) => const DashboardScreen(),
-            ),
-            GoRoute(
-              path: '/save',
-              builder: (context, state) => const SavingsScreen(),
-            ),
-            GoRoute(
-              path: '/circles',
-              builder: (context, state) => const GroupsScreen(),
-            ),
-            GoRoute(
-              path: '/wallet',
-              builder: (context, state) => const TransactionsScreen(),
-            ),
-            GoRoute(
-              path: '/profile',
-              builder: (context, state) => const ProfileScreen(),
-            ),
-          ],
-        ),
-        GoRoute(
-          path: '/deposit',
-          builder: (context, state) => const DepositScreen(),
-        ),
-        GoRoute(
-          path: '/withdraw',
-          builder: (context, state) => const WithdrawScreen(),
-        ),
-        GoRoute(
-          path: '/savings/new',
-          builder: (context, state) => const CreatePlanScreen(),
-        ),
-        GoRoute(
-          path: '/invest',
-          builder: (context, state) => const InvestmentsScreen(),
-        ),
-        GoRoute(
-          path: '/insurance',
-          builder: (context, state) => const InsuranceScreen(),
-        ),
-        GoRoute(
-          path: '/loans',
-          builder: (context, state) => const LoansScreen(),
-        ),
-        GoRoute(
-          path: '/learn',
-          builder: (context, state) => const LearnScreen(),
-        ),
-        GoRoute(
-          path: '/kyc',
-          builder: (context, state) => const KycScreen(),
-        ),
-        GoRoute(
-          path: '/notifications',
-          builder: (context, state) => const NotificationsScreen(),
-        ),
-      ],
-    );
-
     return MaterialApp.router(
       title: 'SavingPlus',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      routerConfig: router,
+      routerConfig: _router,
     );
   }
 }
+
+final _router = GoRouter(
+  initialLocation: '/splash',
+  routes: [
+    // Splash → checks auth → routes to onboarding/login/home
+    GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+    GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
+    GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+    GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+
+    // Main app with bottom nav
+    ShellRoute(
+      builder: (context, state, child) => _AppShell(child: child),
+      routes: [
+        GoRoute(path: '/home', builder: (_, __) => const DashboardScreen()),
+        GoRoute(path: '/save', builder: (_, __) => const SavingsScreen()),
+        GoRoute(path: '/circles', builder: (_, __) => const GroupsScreen()),
+        GoRoute(path: '/wallet', builder: (_, __) => const TransactionsScreen()),
+        GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      ],
+    ),
+
+    // Full-screen routes (no bottom nav)
+    GoRoute(path: '/deposit', builder: (_, __) => const DepositScreen()),
+    GoRoute(path: '/withdraw', builder: (_, __) => const WithdrawScreen()),
+    GoRoute(path: '/savings/new', builder: (_, __) => const CreatePlanScreen()),
+    GoRoute(path: '/invest', builder: (_, __) => const InvestmentsScreen()),
+    GoRoute(path: '/insurance', builder: (_, __) => const InsuranceScreen()),
+    GoRoute(path: '/loans', builder: (_, __) => const LoansScreen()),
+    GoRoute(path: '/learn', builder: (_, __) => const LearnScreen()),
+    GoRoute(path: '/kyc', builder: (_, __) => const KycScreen()),
+    GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+  ],
+);
 
 class _AppShell extends StatelessWidget {
   final Widget child;
@@ -163,63 +95,37 @@ class _AppShell extends StatelessWidget {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.cardWhite,
-          border: Border(
-            top: BorderSide(color: AppColors.surfaceContainerLow, width: 1),
-          ),
+          border: Border(top: BorderSide(color: AppColors.surfaceContainerLow, width: 0.5)),
         ),
-        child: NavigationBar(
-          selectedIndex: _calculateIndex(location),
-          onDestinationSelected: (index) {
-            switch (index) {
-              case 0:
-                context.go('/home');
-              case 1:
-                context.go('/save');
-              case 2:
-                context.go('/circles');
-              case 3:
-                context.go('/wallet');
-              case 4:
-                context.go('/profile');
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.savings_outlined),
-              selectedIcon: Icon(Icons.savings),
-              label: 'Save',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'Circles',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet),
-              label: 'Wallet',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
+        child: SafeArea(
+          child: NavigationBar(
+            height: 64,
+            selectedIndex: _indexFor(location),
+            onDestinationSelected: (i) {
+              const routes = ['/home', '/save', '/circles', '/wallet', '/profile'];
+              context.go(routes[i]);
+            },
+            backgroundColor: AppColors.cardWhite,
+            indicatorColor: AppColors.primary.withValues(alpha: 0.1),
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: AppColors.primary), label: 'Home'),
+              NavigationDestination(icon: Icon(Icons.savings_outlined), selectedIcon: Icon(Icons.savings, color: AppColors.primary), label: 'Save'),
+              NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people, color: AppColors.primary), label: 'Circles'),
+              NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet, color: AppColors.primary), label: 'Wallet'),
+              NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: AppColors.primary), label: 'Profile'),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  int _calculateIndex(String location) {
-    if (location.startsWith('/save')) return 1;
-    if (location.startsWith('/circles')) return 2;
-    if (location.startsWith('/wallet')) return 3;
-    if (location.startsWith('/profile')) return 4;
+  int _indexFor(String loc) {
+    if (loc.startsWith('/save')) return 1;
+    if (loc.startsWith('/circles')) return 2;
+    if (loc.startsWith('/wallet')) return 3;
+    if (loc.startsWith('/profile')) return 4;
     return 0;
   }
 }
