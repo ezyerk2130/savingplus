@@ -1,142 +1,312 @@
 # SavingPlus
 
-Bank-grade savings and investment platform for Tanzania. Built with Go, PostgreSQL, Redis, TypeScript, and React.
+Bank-grade savings & investment platform for Tanzania. Built with Go, React, Flutter, PostgreSQL, and Redis.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **AutoSave** | Recurring daily/weekly/monthly deductions from mobile money |
+| **SafeLock** | Fixed-term savings with up to 18% p.a. returns |
+| **Goal Savings** | Target-based savings with progress tracking |
+| **Flex Wallet** | Liquid savings with instant access |
+| **FlexDollar** | USD savings to protect against TZS inflation |
+| **Investify TZ** | Investment marketplace with 7 products (T-Bills, funds, real estate) |
+| **Upatu Circles** | Rotating group savings (traditional Upatu digitized) |
+| **Micro-Insurance** | Health, life, crop, device, travel coverage from 2K TZS/month |
+| **Savings-Backed Credit** | Loans collateralized by savings balance |
+| **Financial Literacy** | Bilingual articles (English + Swahili) |
+| **M-Pesa Integration** | All 5 TZ mobile money operators (M-Pesa, Tigo, Airtel, Halo) |
+| **KYC Verification** | Tiered limits with document upload |
+| **Multi-Country Ready** | Architecture supports multiple currencies and countries |
 
 ## Architecture
 
 ```
 savingplus/
-├── backend/              Go API server (Gin framework)
-│   ├── cmd/api/          Entry point, server setup, route wiring
-│   ├── internal/         Business logic packages
-│   │   ├── auth/         JWT, OTP, registration, login
-│   │   ├── user/         Profile, KYC state machine
-│   │   ├── wallet/       Double-entry ledger, balance
-│   │   ├── transaction/  Transaction history, filtering
-│   │   ├── payment/      Mobile money gateway (mock + real)
-│   │   ├── savings/      Savings plans (flexible, locked, target)
-│   │   ├── notification/ SMS, email, push, in-app
-│   │   ├── admin/        Admin CRUD, KYC review, audit logs
-│   │   ├── middleware/   Auth, rate limit, audit, CORS
-│   │   ├── db/           PostgreSQL connection
-│   │   ├── queue/        Asynq workers (async payment processing)
-│   │   └── errors/       Typed error handling
-│   ├── pkg/              Reusable utilities (crypto, config)
-│   └── migrations/       SQL migration files
+├── backend/                 Go REST API (60+ endpoints)
+│   ├── cmd/api/             Server entry point
+│   ├── cmd/seedadmin/       Admin user seeder
+│   ├── internal/            16 domain packages
+│   │   ├── auth/            JWT, OTP, registration
+│   │   ├── wallet/          Double-entry ledger
+│   │   ├── savings/         Flexible, locked, target plans
+│   │   ├── investment/      Investify marketplace
+│   │   ├── group/           Upatu circles
+│   │   ├── insurance/       Micro-insurance
+│   │   ├── loan/            Savings-backed credit
+│   │   ├── content/         Financial literacy (bilingual)
+│   │   ├── admin/           25+ admin endpoints
+│   │   └── ...
+│   ├── migrations/          2 SQL migration files (30+ tables)
+│   └── pkg/                 Shared utilities (crypto, config, logger, response)
+│
 ├── frontend/
-│   ├── customer-app/     React + TypeScript + Vite + Tailwind
-│   └── admin-app/        Admin panel (support, finance, super admin)
-├── docs/api/             OpenAPI spec + Postman collection
-├── scripts/              Seed data, utilities
-└── docker-compose.yml    Local development stack
+│   ├── customer-app/        React + TypeScript + Tailwind (15 pages)
+│   └── admin-app/           React + TypeScript + Tailwind (16 pages)
+│
+├── savingplus/              Flutter mobile app (18 screens)
+│   └── lib/
+│       ├── core/            API client, models, auth provider
+│       └── features/        Splash, onboarding, auth, all product screens
+│
+├── railway.toml             Deployment config
+└── CLAUDE.md                Architecture & maintenance guide
 ```
 
 ## Quick Start
 
-### Option 1: Docker Compose (recommended)
+### Prerequisites
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Go | 1.23+ | Backend API |
+| Node.js | 20+ | Web frontends |
+| PostgreSQL | 15+ | Primary database |
+| Redis | 7+ | Cache, rate limit, jobs |
+| Flutter | 3.11+ | Mobile app (optional) |
+
+### 1. Backend
+
 ```bash
-docker-compose up -d
-# API: http://localhost:8080 (customer), http://localhost:8081 (admin)
-```
-
-### Option 2: Manual Setup
-
-**Prerequisites:** Go 1.22+, PostgreSQL 16+, Redis 7+, Node.js 18+
-
-```bash
-# 1. Start PostgreSQL and Redis locally
-
-# 2. Run migrations
-psql -U savingplus -d savingplus -f backend/migrations/000001_init.up.sql
-
-# 3. Seed test data
-psql -U savingplus -d savingplus -f scripts/seed.sql
-
-# 4. Start backend
 cd backend
-cp .env.example .env
-go run ./cmd/api/
+cp .env.example .env    # Edit with your DB/Redis credentials
 
-# 5. Start customer frontend
-cd frontend/customer-app
-npm install && npm run dev
+# Start the server (auto-runs migrations)
+go run ./cmd/api/main.go
 
-# 6. Start admin frontend
-cd frontend/admin-app
-npm install && npm run dev
+# Seed admin users
+go run ./cmd/seedadmin/main.go
 ```
 
-## API Endpoints
+The backend starts on **port 8080** (customer API) and **port 8081** (admin API).
 
-### Customer API (port 8080)
+### 2. Customer Web App
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/v1/auth/register` | Register new user | No |
-| POST | `/api/v1/auth/login` | Login | No |
-| POST | `/api/v1/auth/refresh` | Refresh token | No |
-| POST | `/api/v1/auth/verify-otp` | Verify OTP | No |
-| GET | `/api/v1/profile` | Get user profile | JWT |
-| PUT | `/api/v1/profile` | Update profile | JWT |
-| GET | `/api/v1/wallet/balance` | Get balance | JWT |
-| POST | `/api/v1/wallet/deposit` | Initiate deposit | JWT |
-| POST | `/api/v1/wallet/withdraw` | Initiate withdrawal | JWT |
-| GET | `/api/v1/transactions` | List transactions | JWT |
-| POST | `/api/v1/savings/plan` | Create savings plan | JWT |
-| GET | `/api/v1/savings/plans` | List savings plans | JWT |
-| POST | `/api/v1/kyc/upload` | Upload KYC document | JWT |
-| GET | `/api/v1/kyc/status` | Get KYC status | JWT |
-| GET | `/api/v1/notifications` | List notifications | JWT |
+```bash
+cd frontend/customer-app
+npm install
+npm run dev             # http://localhost:3000
+```
 
-### Admin API (port 8081)
+### 3. Admin Web App
 
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/v1/admin/login` | Admin login (with MFA) | No |
-| GET | `/api/v1/admin/health` | System health | Admin JWT |
-| GET | `/api/v1/admin/users/search` | Search users | Support |
-| GET | `/api/v1/admin/users/:id` | User detail | Support |
-| POST | `/api/v1/admin/users/:id/kyc/approve` | Approve KYC | Support |
-| POST | `/api/v1/admin/users/:id/kyc/reject` | Reject KYC | Support |
-| GET | `/api/v1/admin/transactions` | All transactions | Finance |
-| POST | `/api/v1/admin/admins` | Create admin user | Super Admin |
-| GET | `/api/v1/admin/audit-logs` | View audit logs | Super Admin |
-| GET | `/api/v1/admin/feature-flags` | List feature flags | Super Admin |
-| PUT | `/api/v1/admin/feature-flags/:id` | Toggle flag | Super Admin |
+```bash
+cd frontend/admin-app
+npm install
+npm run dev             # http://localhost:3001
+```
 
-## Security Features
+**Default admin login:** `admin@savingplus.co.tz` / `Admin@123456` / any 6-digit MFA code (dev mode)
 
-- **Argon2id** password and PIN hashing
-- **JWT** with short-lived access tokens (15min) and rotated refresh tokens (7 days)
-- **OTP** via SMS (stored in Redis with 5-min TTL)
-- **Step-up authentication** for high-value withdrawals (>TZS 100,000)
-- **Rate limiting** per user/IP (Redis-backed)
-- **Idempotency keys** for all state-changing operations
-- **AES-256-GCM** encryption for sensitive PII
-- **HMAC-signed** audit log entries
-- **MFA** (Google Authenticator) for admin users
-- **Double-entry ledger** for all wallet operations
-- **Append-only audit logs** with sanitized request bodies
-- **Security headers** (HSTS, CSP, X-Frame-Options, etc.)
-- Account lockout after 5 failed login attempts
+### 4. Flutter Mobile App
 
-## KYC Tiers
+```bash
+cd savingplus
+flutter pub get
 
-| Tier | Deposit/Day | Withdrawal/Day | Max Balance |
-|------|-------------|----------------|-------------|
-| 0 (Unverified) | TZS 50,000 | None | TZS 100,000 |
-| 1 (Basic) | TZS 500,000 | TZS 200,000 | TZS 2,000,000 |
-| 2 (Enhanced) | TZS 5,000,000 | TZS 2,000,000 | TZS 20,000,000 |
-| 3 (Premium) | TZS 50,000,000 | TZS 20,000,000 | TZS 200,000,000 |
+# For physical device: edit lib/core/api/api_client.dart line 10
+# Change _lanIp to your PC's WiFi IP (run ipconfig to find it)
+
+flutter run
+```
 
 ## Environment Variables
 
-See [backend/.env.example](backend/.env.example) for all configuration options.
+Create `backend/.env` from `.env.example`:
 
-## Deployment
+```env
+# Server
+SERVER_PORT=8080
+ADMIN_SERVER_PORT=8081
+ENV=development
+LOG_LEVEL=debug
 
-See [docs/deployment.md](docs/deployment.md) for production deployment instructions.
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=savingplus
+DB_PASSWORD=savingplus_secret
+DB_NAME=savingplus
+DB_SSLMODE=disable
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Security
+JWT_SECRET=your-64-char-random-secret-here
+ENCRYPTION_KEY=your-64-char-hex-key-here
+PAYMENT_GATEWAY=mock
+RATE_LIMIT_PER_SECOND=15
+RATE_LIMIT_PER_MINUTE=200
+```
+
+## API Documentation
+
+### Authentication
+```
+POST /api/v1/auth/register    {phone, full_name, password, pin}
+POST /api/v1/auth/login       {phone, password}  →  {access_token, refresh_token}
+POST /api/v1/auth/refresh     {refresh_token}
+POST /api/v1/auth/send-otp    {phone}
+POST /api/v1/auth/verify-otp  {phone, code}
+POST /api/v1/auth/change-password  {current_password, new_password}
+POST /api/v1/auth/change-pin      {current_pin, new_pin}
+POST /api/v1/auth/logout          {refresh_token}
+```
+
+### Wallet
+```
+GET  /api/v1/wallet/balance
+POST /api/v1/wallet/deposit   {amount, payment_method, phone_number, idempotency_key}
+POST /api/v1/wallet/withdraw  {amount, pin, payment_method, phone_number, idempotency_key}
+```
+
+### Savings Plans
+```
+POST /api/v1/savings/plan               {name, type, initial_amount?, target_amount?, ...}
+GET  /api/v1/savings/plans
+GET  /api/v1/savings/plans/:id
+POST /api/v1/savings/plans/:id/deposit  {amount}
+POST /api/v1/savings/plans/:id/withdraw {amount}
+POST /api/v1/savings/plans/:id/cancel
+```
+
+### Investments (Investify TZ)
+```
+GET  /api/v1/investments/products       ?type=
+GET  /api/v1/investments/products/:id
+POST /api/v1/investments                {product_id, amount}
+GET  /api/v1/investments                ?page=&status=
+POST /api/v1/investments/:id/withdraw
+```
+
+### Groups (Upatu Circles)
+```
+POST /api/v1/groups                     {name, type, contribution_amount, frequency, max_members}
+GET  /api/v1/groups
+GET  /api/v1/groups/:id
+POST /api/v1/groups/:id/join
+POST /api/v1/groups/:id/leave
+POST /api/v1/groups/:id/contribute
+POST /api/v1/groups/:id/start
+```
+
+### Insurance
+```
+GET  /api/v1/insurance/products         ?type=
+GET  /api/v1/insurance/products/:id
+POST /api/v1/insurance/subscribe        {product_id, beneficiary_name, beneficiary_phone}
+GET  /api/v1/insurance/policies
+POST /api/v1/insurance/policies/:id/cancel
+```
+
+### Loans (Savings-Backed Credit)
+```
+GET  /api/v1/loans/eligibility
+POST /api/v1/loans                      {amount, term_days}
+GET  /api/v1/loans                      ?page=&status=
+GET  /api/v1/loans/:id
+POST /api/v1/loans/:id/repay            {amount}
+```
+
+### Other
+```
+GET  /api/v1/content/articles           ?category=&language=
+GET  /api/v1/content/articles/:id
+POST /api/v1/kyc/upload                 multipart: file, document_type
+GET  /api/v1/kyc/status
+GET  /api/v1/notifications
+PUT  /api/v1/notifications/:id/read
+PUT  /api/v1/notifications/read-all
+GET  /api/v1/profile
+PUT  /api/v1/profile                    {full_name?, email?}
+GET  /api/v1/profile/limits
+GET  /api/v1/transactions               ?page=&type=&status=
+GET  /api/v1/transactions/:id
+```
+
+See [CLAUDE.md](CLAUDE.md) for admin endpoints and full architecture guide.
+
+## Testing
+
+```bash
+# Backend (207 tests)
+cd backend && go test ./...
+
+# Customer web app (26 tests)
+cd frontend/customer-app && npm test
+
+# Admin web app (16 tests)
+cd frontend/admin-app && npm test
+
+# Total: 249 tests
+```
+
+## Deployment (Railway)
+
+1. Push to GitHub
+2. Create Railway project with **PostgreSQL** and **Redis** addons
+3. Add 3 services from the same repo:
+
+| Service | Root Directory | Notes |
+|---------|---------------|-------|
+| backend | `backend` | Set env vars (see CLAUDE.md) |
+| customer-app | `frontend/customer-app` | Auto-builds with Dockerfile |
+| admin-app | `frontend/admin-app` | Auto-builds with Dockerfile |
+
+4. Set `SERVER_PORT=${{PORT}}` and `ADMIN_SERVER_PORT=${{PORT}}` for single-port mode
+5. Run `railway run --service backend ./savingplus-seed` to create admin users
+6. Generate public domains for customer-app and admin-app
+
+## Tech Stack
+
+### Backend
+| Library | Purpose |
+|---------|---------|
+| gin-gonic/gin | HTTP framework |
+| jackc/pgx/v5 | PostgreSQL driver |
+| golang-jwt/jwt/v5 | JWT tokens |
+| redis/go-redis/v9 | Redis client |
+| hibiken/asynq | Async job queue |
+| pquerna/otp | TOTP for admin MFA |
+| sirupsen/logrus | Structured logging |
+| golang.org/x/crypto | Argon2id password hashing |
+
+### Frontend (Web)
+| Library | Purpose |
+|---------|---------|
+| React 18 + TypeScript | UI framework |
+| Tailwind CSS | Styling (Wise-inspired design) |
+| Zustand | State management |
+| React Hook Form + Zod | Forms & validation |
+| Axios | HTTP client with auth interceptor |
+| Lucide React | Icons |
+
+### Mobile (Flutter)
+| Library | Purpose |
+|---------|---------|
+| Dio | HTTP client with JWT refresh |
+| Provider | State management |
+| GoRouter | Declarative routing |
+| flutter_secure_storage | Encrypted token/credential storage |
+| local_auth | Biometric login (fingerprint/face) |
+| Google Fonts | Plus Jakarta Sans + Inter typography |
+
+## Security Highlights
+
+- Passwords hashed with Argon2id
+- JWT access tokens (15 min) + refresh tokens (7 days, rotated on use)
+- Rate limiting: 15 req/sec, 200 req/min per IP
+- Account lockout after 5 failed login attempts
+- Admin MFA via TOTP (Google Authenticator)
+- Double-entry ledger with `SELECT ... FOR UPDATE` row locking
+- HMAC-signed audit logs
+- Wallet queries enforce currency filter for multi-currency safety
+- Biometric authentication on mobile (fingerprint/face)
+- KYC document file hashing (SHA-256)
 
 ## License
 
-Proprietary - SavingPlus Ltd.
+Private — All rights reserved.
