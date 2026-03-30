@@ -179,6 +179,9 @@ func main() {
 			protected.POST("/savings/plans/:id/deposit", savingsHandler.DepositToPlan)
 			protected.POST("/savings/plans/:id/withdraw", savingsHandler.WithdrawFromPlan)
 			protected.POST("/savings/plans/:id/cancel", savingsHandler.CancelPlan)
+				protected.POST("/savings/plans/:id/pause", savingsHandler.PausePlan)
+				protected.POST("/savings/plans/:id/resume", savingsHandler.ResumePlan)
+				protected.GET("/savings/plans/:id/projection", savingsHandler.GetProjection)
 
 			// KYC
 			protected.POST("/kyc/upload", userHandler.UploadKYCDocument)

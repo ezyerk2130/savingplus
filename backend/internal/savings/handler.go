@@ -671,3 +671,127 @@ func (h *Handler) CancelPlan(c *gin.Context) {
 		"refunded_amount": response.FormatMoney(currentAmount),
 	})
 }
+
+// PausePlan pauses auto-debit on an active savings plan.
+func (h *Handler) PausePlan(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+	planID := c.Param("id")
+
+	result, err := h.db.ExecContext(c,
+		`UPDATE savings_plans SET auto_debit = FALSE WHERE id = $1 AND user_id = $2 AND status = 'active'`,
+		planID, userID,
+	)
+	if err != nil {
+		log.WithError(err).Error("Failed to pause savings plan")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found or not active"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "AutoSave paused"})
+}
+
+// ResumePlan resumes auto-debit on a paused savings plan.
+func (h *Handler) ResumePlan(c *gin.Context) {
+	log := logger.Ctx(c)
+	userID := c.GetString("user_id")
+	planID := c.Param("id")
+
+	var req struct {
+		Amount    *float64 `json:"auto_debit_amount"`
+		Frequency *string  `json:"auto_debit_frequency"`
+	}
+	c.ShouldBindJSON(&req)
+
+	query := `UPDATE savings_plans SET auto_debit = TRUE`
+	args := []interface{}{}
+	idx := 1
+
+	if req.Amount != nil {
+		query += fmt.Sprintf(`, auto_debit_amount = $%d`, idx)
+		args = append(args, *req.Amount)
+		idx++
+	}
+	if req.Frequency != nil {
+		query += fmt.Sprintf(`, auto_debit_frequency = $%d`, idx)
+		args = append(args, *req.Frequency)
+		idx++
+	}
+
+	query += fmt.Sprintf(` WHERE id = $%d AND user_id = $%d AND status = 'active'`, idx, idx+1)
+	args = append(args, planID, userID)
+
+	result, err := h.db.ExecContext(c, query, args...)
+	if err != nil {
+		log.WithError(err).Error("Failed to resume savings plan")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found or not active"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "AutoSave resumed"})
+}
+
+// GetProjection calculates projected savings and interest for a plan.
+func (h *Handler) GetProjection(c *gin.Context) {
+	userID := c.GetString("user_id")
+	planID := c.Param("id")
+
+	var currentAmount, interestRate float64
+	var autoDebitAmount sql.NullFloat64
+	var autoDebitFreq sql.NullString
+	var planType string
+
+	err := h.db.QueryRowContext(c,
+		`SELECT type, current_amount, interest_rate, auto_debit_amount, auto_debit_frequency
+		 FROM savings_plans WHERE id = $1 AND user_id = $2`,
+		planID, userID,
+	).Scan(&planType, &currentAmount, &interestRate, &autoDebitAmount, &autoDebitFreq)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": apperr.ErrInternal.Message})
+		return
+	}
+
+	// Calculate 12-month projection
+	monthlyDeposit := 0.0
+	if autoDebitAmount.Valid {
+		switch autoDebitFreq.String {
+		case "daily":
+			monthlyDeposit = autoDebitAmount.Float64 * 30
+		case "weekly":
+			monthlyDeposit = autoDebitAmount.Float64 * 4.33
+		case "monthly":
+			monthlyDeposit = autoDebitAmount.Float64
+		}
+	}
+
+	months := 12
+	projected := currentAmount
+	totalInterest := 0.0
+	for i := 0; i < months; i++ {
+		projected += monthlyDeposit
+		monthInterest := projected * (interestRate / 12)
+		totalInterest += monthInterest
+		projected += monthInterest
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"current_amount":   response.FormatMoney(currentAmount),
+		"monthly_deposit":  response.FormatMoney(monthlyDeposit),
+		"projected_12m":    response.FormatMoney(projected),
+		"total_interest":   response.FormatMoney(totalInterest),
+		"interest_rate":    strconv.FormatFloat(interestRate*100, 'f', 1, 64) + "%",
+		"plan_type":        planType,
+	})
+}
