@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -31,16 +32,15 @@ class _DepositWaitingScreenState extends State<DepositWaitingScreen>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(seconds: 3),
     )..repeat();
 
-    // Auto-poll or auto-complete after 10 seconds for demo
     _pollTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() => _elapsed++);
       if (_elapsed >= 10) {
         timer.cancel();
         if (mounted) {
-          Navigator.of(context).pop(true); // Pop with success
+          Navigator.of(context).pop(true);
         }
       }
     });
@@ -58,10 +58,12 @@ class _DepositWaitingScreenState extends State<DepositWaitingScreen>
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        title: Text(
-          'Deposit',
-          style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
         ),
+        title: Text('Deposit',
+            style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -70,8 +72,25 @@ class _DepositWaitingScreenState extends State<DepositWaitingScreen>
               color: AppColors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(100),
             ),
-            child: Text('ENG',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('ENG',
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.onSurfaceVariant)),
+              ],
+            ),
           ),
         ],
       ),
@@ -82,68 +101,146 @@ class _DepositWaitingScreenState extends State<DepositWaitingScreen>
             children: [
               const Spacer(flex: 2),
 
-              // Animated progress indicator with phone icon
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  RotationTransition(
-                    turns: _animController,
-                    child: Container(
-                      width: 120,
-                      height: 120,
+              // --- Animated ring with phone illustration ---
+              SizedBox(
+                width: 160,
+                height: 160,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Rotating outer ring
+                    AnimatedBuilder(
+                      animation: _animController,
+                      builder: (context, _) {
+                        return Transform.rotate(
+                          angle: _animController.value * 2 * math.pi,
+                          child: Container(
+                            width: 160,
+                            height: 160,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.surfaceContainerHigh, width: 3),
+                            ),
+                            child: CustomPaint(
+                              painter: _ArcPainter(color: AppColors.primary),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    // Phone illustration
+                    Container(
+                      width: 70,
+                      height: 100,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3), width: 3),
+                        color: AppColors.cardWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.surfaceContainerHigh, width: 2),
                       ),
-                      child: CustomPaint(
-                        painter: _ArcPainter(color: AppColors.primary),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            width: 44,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            width: 28,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                    // Green notification badge
+                    Positioned(
+                      top: 28,
+                      right: 38,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.primary,
+                        ),
+                        child: const Icon(Icons.notifications,
+                            color: Colors.white, size: 11),
+                      ),
                     ),
-                    child: const Icon(Icons.phone_android, color: AppColors.primary, size: 36),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(height: 32),
               Text(
                 'Waiting for M-Pesa...',
-                style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.onBackground),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.onBackground),
               ),
 
               const SizedBox(height: 16),
+              // Amount chip
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
-                  'AMOUNT ${formatMoney(widget.amount)}',
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onBackground),
+                child: Text.rich(
+                  TextSpan(
+                    text: 'AMOUNT ',
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.onSurfaceVariant,
+                        letterSpacing: 0.5),
+                    children: [
+                      TextSpan(
+                        text: formatMoney(widget.amount),
+                        style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 24),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
-                  'Please check your phone for the M-Pesa push notification to authorize the deposit.',
+                  'Please check your phone for the M-Pesa push notification to authorize the deposit. Keep this screen open...',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                  style: GoogleFonts.inter(
+                      fontSize: 14, color: AppColors.onSurfaceVariant, height: 1.5),
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // Warning card
+              // --- Warning card ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -172,7 +269,10 @@ class _DepositWaitingScreenState extends State<DepositWaitingScreen>
                 onTap: () {},
                 child: Text(
                   "Didn't receive a notification?",
-                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                  style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.error),
                 ),
               ),
 

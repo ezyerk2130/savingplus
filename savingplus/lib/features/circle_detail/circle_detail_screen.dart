@@ -76,8 +76,12 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop()),
-        title: Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(name,
+            style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 8),
@@ -86,9 +90,14 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
               color: AppColors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(100),
             ),
-            child: Text('ENG', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+            child: Text('ENG',
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.onSurfaceVariant)),
           ),
-          IconButton(icon: const Icon(Icons.settings_outlined, size: 20), onPressed: () {}),
+          IconButton(
+              icon: const Icon(Icons.settings_outlined, size: 20), onPressed: () {}),
         ],
       ),
       body: _isLoading
@@ -114,26 +123,35 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
                       children: [
                         const SizedBox(height: 16),
 
-                        // Summary card
+                        // --- Summary card ---
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: AppColors.cardWhite,
+                            color: AppColors.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppColors.ghostBorder),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Cycle $currentCycle of $cycleCount',
-                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
-                              const SizedBox(height: 4),
-                              Text('${formatMoney(contributionAmount)}/week contribution',
-                                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.onBackground)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary)),
+                              const SizedBox(height: 6),
+                              Text(
+                                  'Contribution: ${formatMoney(contributionAmount)}/week',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.onBackground)),
                               const SizedBox(height: 4),
                               Text('Total pot ${formatMoney(totalPot)}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.onBackground)),
+                                  style: moneyStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.onBackground)),
                               const SizedBox(height: 16),
 
                               // Progress bar
@@ -141,54 +159,69 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
                                 borderRadius: BorderRadius.circular(4),
                                 child: LinearProgressIndicator(
                                   value: progress.toDouble(),
-                                  backgroundColor: AppColors.surfaceContainerLow,
-                                  valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                                  backgroundColor:
+                                      AppColors.surfaceContainerHigh,
+                                  valueColor: const AlwaysStoppedAnimation(
+                                      AppColors.primary),
                                   minHeight: 8,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text('STARTED JAN 2026',
-                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
-                                  Text('${(progress * 100).round()}% COMPLETE',
-                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.onSurfaceVariant,
+                                          letterSpacing: 0.3)),
+                                  Text(
+                                      '${(progress * 100).round()}% COMPLETE',
+                                      style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                          letterSpacing: 0.3)),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
+                              const SizedBox(height: 16),
 
-                        const SizedBox(height: 16),
-
-                        // Next payout
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: AppColors.primary,
-                                child: Text('RJ', style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Next payout',
-                                        style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
-                                    Text('Rehema Juma \u2014 5 April 2026',
-                                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
-                                  ],
-                                ),
+                              // Next payout row
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppColors.primary,
+                                    child: Text('RJ',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white)),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text('NEXT PAYOUT',
+                                          style: GoogleFonts.inter(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  AppColors.onSurfaceVariant,
+                                              letterSpacing: 0.5)),
+                                      Text(
+                                          'Rehema Juma \u2014 5 April 2026',
+                                          style: GoogleFonts.inter(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color:
+                                                  AppColors.onBackground)),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -196,26 +229,34 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
 
                         const SizedBox(height: 24),
 
-                        // Current cycle status
+                        // --- Current Cycle Status ---
                         Row(
                           children: [
                             Text('Current Cycle Status',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                                style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.onBackground)),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(100),
                               ),
                               child: Text('Week $currentCycle',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
 
-                        // Your contribution status
+                        // Your payment status card (green)
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
@@ -225,44 +266,65 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
                           ),
                           child: Row(
                             children: [
+                              const Icon(Icons.check_circle,
+                                  color: Colors.white, size: 22),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Text('You: PAID',
-                                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white)),
                                     const SizedBox(height: 2),
                                     Text('Confirmed on 22 Mar',
-                                        style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withValues(alpha: 0.8))),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            color: Colors.white
+                                                .withValues(alpha: 0.8))),
                                   ],
                                 ),
                               ),
                               Text(formatMoney(contributionAmount),
-                                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+                                  style: moneyStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white)),
                             ],
                           ),
                         ),
 
                         const SizedBox(height: 12),
 
-                        // Members list
+                        // Member list
                         ..._buildMemberList(),
 
                         const SizedBox(height: 24),
 
-                        // Payout rotation
+                        // --- Payout rotation ---
                         Text('Payout rotation',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                            style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.onBackground)),
                         const SizedBox(height: 12),
                         _buildPayoutTimeline(),
 
                         const SizedBox(height: 24),
 
-                        // Action buttons
+                        // --- Action buttons ---
                         GradientButton(
-                          onPressed: _isContributing ? null : _makeContribution,
+                          onPressed:
+                              _isContributing ? null : _makeContribution,
                           child: _isContributing
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
                               : const Text('Make contribution'),
                         ),
                         const SizedBox(height: 12),
@@ -271,7 +333,8 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
                           height: 48,
                           child: OutlinedButton.icon(
                             onPressed: () {},
-                            icon: const Icon(Icons.person_add_outlined, size: 18),
+                            icon: const Icon(Icons.person_add_outlined,
+                                size: 18),
                             label: const Text('Invite member'),
                           ),
                         ),
@@ -287,7 +350,7 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
     final demoMembers = _members.isNotEmpty
         ? _members
         : [
-            {'name': 'Fatma Hassan', 'status': 'paid'},
+            {'name': 'Amina Mwangi', 'status': 'paid'},
             {'name': 'John Mushi', 'status': 'paid'},
             {'name': 'Grace Kimaro', 'status': 'due'},
             {'name': 'Ali Bakari', 'status': 'due'},
@@ -297,7 +360,12 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
       final name = m['name'] ?? m['full_name'] ?? 'Member';
       final status = (m['status'] ?? 'due').toString().toUpperCase();
       final isPaid = status == 'PAID';
-      final initials = name.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase();
+      final initials = name
+          .split(' ')
+          .map((w) => w.isNotEmpty ? w[0] : '')
+          .take(2)
+          .join()
+          .toUpperCase();
 
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
@@ -312,21 +380,35 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor: AppColors.surfaceContainerLow,
-              child: Text(initials, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+              child: Text(initials,
+                  style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.onBackground)),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(name, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.onBackground)),
+              child: Text(name,
+                  style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.onBackground)),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: isPaid ? AppColors.primary.withValues(alpha: 0.1) : AppColors.warning.withValues(alpha: 0.1),
+                color: isPaid
+                    ? AppColors.primary.withValues(alpha: 0.1)
+                    : AppColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(100),
               ),
               child: Text(
                 status,
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: isPaid ? AppColors.primary : AppColors.warning),
+                style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isPaid ? AppColors.primary : AppColors.warning),
               ),
             ),
           ],
@@ -350,17 +432,28 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
         final m = entry.value;
         final isLast = idx == rotationMembers.length - 1;
         final status = m['status']!;
+        final position = m['position']!;
 
-        Color dotColor;
-        switch (status) {
-          case 'RECEIVED':
-            dotColor = AppColors.primary;
-            break;
-          case 'NEXT':
-            dotColor = AppColors.warning;
-            break;
-          default:
-            dotColor = AppColors.surfaceContainerHigh;
+        final isReceived = status == 'RECEIVED';
+        final isNext = status == 'NEXT';
+
+        Color circleColor;
+        Widget circleChild;
+        if (isReceived) {
+          circleColor = AppColors.primary;
+          circleChild = const Icon(Icons.check, size: 12, color: Colors.white);
+        } else if (isNext) {
+          circleColor = AppColors.primary;
+          circleChild = Text(position,
+              style: GoogleFonts.inter(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white));
+        } else {
+          circleColor = AppColors.surfaceContainerHigh;
+          circleChild = Text(position,
+              style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurfaceVariant));
         }
 
         return IntrinsicHeight(
@@ -372,66 +465,71 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
                 child: Column(
                   children: [
                     Container(
-                      width: 14,
-                      height: 14,
+                      width: 24,
+                      height: 24,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: dotColor,
-                        border: Border.all(color: dotColor, width: 2),
+                        color: circleColor,
                       ),
-                      child: status == 'RECEIVED'
-                          ? const Icon(Icons.check, size: 10, color: Colors.white)
-                          : null,
+                      alignment: Alignment.center,
+                      child: circleChild,
                     ),
                     if (!isLast)
                       Expanded(
                         child: Container(
                           width: 2,
-                          color: AppColors.surfaceContainerHigh,
+                          color: isReceived || isNext
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.surfaceContainerHigh,
                         ),
                       ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: status == 'NEXT' ? AppColors.warning.withValues(alpha: 0.06) : AppColors.cardWhite,
+                    color: isNext
+                        ? AppColors.primary.withValues(alpha: 0.06)
+                        : AppColors.cardWhite,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: status == 'NEXT' ? AppColors.warning.withValues(alpha: 0.2) : AppColors.ghostBorder),
+                    border: Border.all(
+                        color: isNext
+                            ? AppColors.primary.withValues(alpha: 0.2)
+                            : AppColors.ghostBorder),
                   ),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: AppColors.surfaceContainerLow,
-                        child: Text(
-                          m['name']!.split(' ').map((w) => w[0]).take(2).join(),
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onBackground),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(m['name']!, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onBackground)),
-                            Text('#${m['position']} \u2022 ${m['phone']}',
-                                style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurfaceVariant)),
+                            Text(m['name']!,
+                                style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.onBackground)),
+                            const SizedBox(height: 2),
+                            Text('#$position \u2022 ${m['phone']}',
+                                style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: AppColors.onSurfaceVariant)),
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: dotColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Text(
-                          status,
-                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: dotColor == AppColors.surfaceContainerHigh ? AppColors.onSurfaceVariant : dotColor),
+                      Text(
+                        status,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isReceived
+                              ? AppColors.primary
+                              : isNext
+                                  ? AppColors.primary
+                                  : AppColors.onSurfaceVariant,
                         ),
                       ),
                     ],

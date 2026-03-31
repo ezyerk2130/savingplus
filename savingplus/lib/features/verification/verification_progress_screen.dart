@@ -11,8 +11,13 @@ class VerificationProgressScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop()),
-        title: Text('Verification', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('Verification',
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.primary)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -21,8 +26,25 @@ class VerificationProgressScreen extends StatelessWidget {
               color: AppColors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(100),
             ),
-            child: Text('SWAHILI',
-                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('SWAHILI',
+                    style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.onSurfaceVariant)),
+              ],
+            ),
           ),
         ],
       ),
@@ -33,45 +55,50 @@ class VerificationProgressScreen extends StatelessWidget {
             children: [
               const Spacer(flex: 2),
 
-              // Illustration
+              // --- Illustration: clipboard + clock ---
               Container(
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
+                  color: AppColors.surfaceContainerLow,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.assignment_late_outlined, color: AppColors.warning, size: 48),
+                child: const Icon(Icons.assignment_late_outlined,
+                    color: AppColors.warning, size: 48),
               ),
 
               const SizedBox(height: 28),
               Text(
                 'Verification in progress',
-                style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.onBackground),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onBackground),
               ),
               const SizedBox(height: 8),
               Text(
                 "We'll notify you within 2 hours",
-                style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                style: GoogleFonts.inter(
+                    fontSize: 14, color: AppColors.onSurfaceVariant),
               ),
 
               const SizedBox(height: 36),
 
-              // Step indicator
+              // --- Step indicator ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildStep('PROFILE', StepStatus.complete),
+                  _buildStep('PROFILE', _StepStatus.complete),
                   _buildConnector(true),
-                  _buildStep('IDENTITY', StepStatus.complete),
+                  _buildStep('IDENTITY', _StepStatus.complete),
                   _buildConnector(false),
-                  _buildStep('REVIEW', StepStatus.inProgress),
+                  _buildStep('REVIEW', _StepStatus.inProgress),
                 ],
               ),
 
               const SizedBox(height: 36),
 
-              // Info card
+              // --- Info card: Secure Review ---
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -84,13 +111,14 @@ class VerificationProgressScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.shield_outlined, color: AppColors.primary, size: 18),
+                      child: const Icon(Icons.verified_user,
+                          color: AppColors.primary, size: 20),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -98,11 +126,30 @@ class VerificationProgressScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Secure Review',
-                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.onBackground)),
                           const SizedBox(height: 4),
-                          Text(
-                            'Our team is reviewing your documents. Typically takes less than 2 hours.',
-                            style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurfaceVariant),
+                          Text.rich(
+                            TextSpan(
+                              text:
+                                  'Our team is reviewing your documents. This typically takes less than ',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.onSurfaceVariant,
+                                  height: 1.4),
+                              children: [
+                                TextSpan(
+                                  text: '2 hours',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.onBackground),
+                                ),
+                                const TextSpan(text: '.'),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -111,14 +158,15 @@ class VerificationProgressScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Contact support link
+              // --- Contact support card ---
               GestureDetector(
                 onTap: () {},
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: AppColors.cardWhite,
                     borderRadius: BorderRadius.circular(12),
@@ -126,13 +174,26 @@ class VerificationProgressScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.headset_mic_outlined, size: 20, color: AppColors.onSurfaceVariant),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.help_outline,
+                            size: 18, color: AppColors.onSurfaceVariant),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text('Need help? Contact support',
-                            style: GoogleFonts.inter(fontSize: 14, color: AppColors.onBackground)),
+                            style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.onBackground)),
                       ),
-                      const Icon(Icons.chevron_right, size: 20, color: AppColors.onSurfaceVariant),
+                      const Icon(Icons.chevron_right,
+                          size: 20, color: AppColors.onSurfaceVariant),
                     ],
                   ),
                 ),
@@ -140,13 +201,21 @@ class VerificationProgressScreen extends StatelessWidget {
 
               const Spacer(flex: 2),
 
-              // Back to dashboard
+              // --- Back to dashboard ---
               SizedBox(
                 width: double.infinity,
-                height: 48,
+                height: 52,
                 child: OutlinedButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Back to dashboard'),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.ghostBorder),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Text('Back to dashboard',
+                      style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.onBackground)),
                 ),
               ),
               const SizedBox(height: 24),
@@ -157,9 +226,9 @@ class VerificationProgressScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStep(String label, StepStatus status) {
-    final isComplete = status == StepStatus.complete;
-    final isInProgress = status == StepStatus.inProgress;
+  Widget _buildStep(String label, _StepStatus status) {
+    final isComplete = status == _StepStatus.complete;
+    final isInProgress = status == _StepStatus.inProgress;
 
     return Column(
       children: [
@@ -192,7 +261,11 @@ class VerificationProgressScreen extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: isComplete ? AppColors.primary : isInProgress ? AppColors.warning : AppColors.onSurfaceVariant,
+            color: isComplete
+                ? AppColors.primary
+                : isInProgress
+                    ? AppColors.warning
+                    : AppColors.onSurfaceVariant,
             letterSpacing: 0.5,
           ),
         ),
@@ -210,4 +283,4 @@ class VerificationProgressScreen extends StatelessWidget {
   }
 }
 
-enum StepStatus { complete, inProgress, pending }
+enum _StepStatus { complete, inProgress, pending }

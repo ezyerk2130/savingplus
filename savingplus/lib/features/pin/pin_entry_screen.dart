@@ -62,7 +62,8 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
 
   Future<void> _biometricAuth() async {
     try {
-      final canCheck = await _localAuth.canCheckBiometrics || await _localAuth.isDeviceSupported();
+      final canCheck =
+          await _localAuth.canCheckBiometrics || await _localAuth.isDeviceSupported();
       if (!canCheck) return;
 
       final authenticated = await _localAuth.authenticate(
@@ -87,7 +88,7 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.onBackground.withValues(alpha: 0.6),
+      backgroundColor: AppColors.onBackground.withValues(alpha: 0.7),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
@@ -95,36 +96,56 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
-          widget.title,
-          style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
-        ),
+        title: Text(widget.title,
+            style: GoogleFonts.plusJakartaSans(
+                fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white)),
         actions: [
           IconButton(icon: const Icon(Icons.language), onPressed: () {}),
         ],
       ),
       body: Column(
         children: [
-          // Blurred card preview area
+          // --- Blurred card preview area ---
           Expanded(
             flex: 2,
             child: Center(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 32),
+                margin: const EdgeInsets.symmetric(horizontal: 40),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_outline, color: Colors.white.withValues(alpha: 0.5), size: 40),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Secured',
-                      style: GoogleFonts.inter(fontSize: 14, color: Colors.white.withValues(alpha: 0.5)),
+                    // Shimmer placeholder shapes
+                    Container(
+                      width: 120,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 180,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 100,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
                     ),
                   ],
                 ),
@@ -132,7 +153,7 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
             ),
           ),
 
-          // Bottom sheet container
+          // --- Bottom sheet container ---
           Expanded(
             flex: 5,
             child: Container(
@@ -144,6 +165,7 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 12),
+                  // Handle bar
                   Container(
                     width: 40,
                     height: 4,
@@ -154,17 +176,19 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  Text(
-                    'Confirm transaction',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.onBackground),
-                  ),
+                  Text('Confirm transaction',
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.onBackground)),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
                       widget.description,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                      style: GoogleFonts.inter(
+                          fontSize: 14, color: AppColors.onSurfaceVariant),
                     ),
                   ),
 
@@ -173,12 +197,14 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
                   if (_error != null) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Text(_error!, style: GoogleFonts.inter(fontSize: 13, color: AppColors.error)),
+                      child: Text(_error!,
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: AppColors.error)),
                     ),
                     const SizedBox(height: 12),
                   ],
 
-                  // PIN dots
+                  // --- PIN dots ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(6, (index) {
@@ -191,7 +217,9 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
                           shape: BoxShape.circle,
                           color: filled ? AppColors.primary : Colors.transparent,
                           border: Border.all(
-                            color: filled ? AppColors.primary : AppColors.surfaceContainerHigh,
+                            color: filled
+                                ? AppColors.primary
+                                : AppColors.surfaceContainerHigh,
                             width: 2,
                           ),
                         ),
@@ -201,12 +229,15 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
 
                   if (_isLoading) ...[
                     const SizedBox(height: 16),
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
                   ],
 
                   const Spacer(),
 
-                  // Number pad
+                  // --- Number pad ---
                   _buildNumberPad(),
 
                   const SizedBox(height: 12),
@@ -215,11 +246,15 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
                     child: Text.rich(
                       TextSpan(
                         text: 'Forgot PIN? ',
-                        style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                        style: GoogleFonts.inter(
+                            fontSize: 14, color: AppColors.onSurfaceVariant),
                         children: [
                           TextSpan(
                             text: 'Reset',
-                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary),
                           ),
                         ],
                       ),
@@ -254,20 +289,25 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
               children: row.map((key) {
                 if (key == 'bio') {
                   return _buildKeyButton(
-                    child: const Icon(Icons.fingerprint, color: AppColors.onBackground, size: 28),
+                    child: const Icon(Icons.fingerprint,
+                        color: AppColors.onBackground, size: 28),
                     onTap: _biometricAuth,
                   );
                 }
                 if (key == 'del') {
                   return _buildKeyButton(
-                    child: const Icon(Icons.backspace_outlined, color: AppColors.onBackground, size: 24),
+                    child: const Icon(Icons.backspace_outlined,
+                        color: AppColors.onBackground, size: 24),
                     onTap: _removeDigit,
                   );
                 }
                 return _buildKeyButton(
                   child: Text(
                     key,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.onBackground),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onBackground),
                   ),
                   onTap: () => _addDigit(key),
                 );
@@ -287,7 +327,7 @@ class _PinEntryScreenState extends State<PinEntryScreen> {
         height: 56,
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
         alignment: Alignment.center,
         child: child,

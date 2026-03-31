@@ -64,7 +64,7 @@ class _OtpScreenState extends State<OtpScreen> {
   String get _maskedPhone {
     final p = widget.phone;
     if (p.length >= 6) {
-      return '${p.substring(0, 7)}XX XXX XXX';
+      return '+255 ${p.substring(p.length - 9, p.length - 7)}XX XXX XXX';
     }
     return p;
   }
@@ -113,20 +113,22 @@ class _OtpScreenState extends State<OtpScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text(
-          'OTP Verification',
-          style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600),
-        ),
+        title: Text('OTP Verification',
+            style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w600)),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
+              color: AppColors.cardWhite,
               borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: AppColors.ghostBorder),
             ),
             child: Text('Swahili',
-                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.onSurfaceVariant)),
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.onSurfaceVariant)),
           ),
         ],
       ),
@@ -136,19 +138,24 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             children: [
               const SizedBox(height: 32),
+
+              // Chat bubble icon in white circle
               Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: AppColors.cardWhite,
                   shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.ghostBorder),
                 ),
-                child: const Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 32),
+                child: const Icon(Icons.chat_bubble, color: AppColors.primary, size: 32),
               ),
+
               const SizedBox(height: 24),
               Text(
                 'Verify your number',
-                style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.onBackground),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.onBackground),
               ),
               const SizedBox(height: 8),
               Text(
@@ -156,6 +163,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
               ),
+
               const SizedBox(height: 32),
 
               if (_error != null) ...[
@@ -166,43 +174,52 @@ class _OtpScreenState extends State<OtpScreen> {
                     color: AppColors.error.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(_error!, style: GoogleFonts.inter(color: AppColors.error, fontSize: 13)),
+                  child: Text(_error!,
+                      style: GoogleFonts.inter(color: AppColors.error, fontSize: 13)),
                 ),
                 const SizedBox(height: 16),
               ],
 
-              // OTP digit boxes
+              // --- 6 digit boxes ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(6, (index) {
+                  final hasValue = _controllers[index].text.isNotEmpty;
+                  final isFocused = _focusNodes[index].hasFocus;
+
                   return Container(
                     width: 48,
-                    height: 56,
+                    height: 58,
                     margin: EdgeInsets.only(left: index == 0 ? 0 : 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: hasValue
+                            ? AppColors.primary
+                            : isFocused
+                                ? AppColors.primary
+                                : AppColors.ghostBorder,
+                        width: hasValue || isFocused ? 1.5 : 1,
+                      ),
+                    ),
                     child: TextFormField(
                       controller: _controllers[index],
                       focusNode: _focusNodes[index],
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       maxLength: 1,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w600, color: AppColors.onBackground),
-                      decoration: InputDecoration(
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.onBackground),
+                      decoration: const InputDecoration(
                         counterText: '',
-                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                        filled: true,
-                        fillColor: AppColors.surfaceContainerLow,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.ghostBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.ghostBorder),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                        ),
+                        contentPadding: EdgeInsets.symmetric(vertical: 14),
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onChanged: (value) {
@@ -222,24 +239,41 @@ class _OtpScreenState extends State<OtpScreen> {
 
               // Resend timer
               _secondsRemaining > 0
-                  ? Text(
-                      'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
-                      style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.access_time,
+                            size: 16, color: AppColors.onSurfaceVariant),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Resend code in 00:${_secondsRemaining.toString().padLeft(2, '0')}',
+                          style: GoogleFonts.inter(
+                              fontSize: 14, color: AppColors.onSurfaceVariant),
+                        ),
+                      ],
                     )
                   : GestureDetector(
                       onTap: _resendCode,
                       child: Text(
                         'Resend code',
-                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary),
                       ),
                     ),
 
               const SizedBox(height: 32),
 
+              // Verify button
               GradientButton(
                 onPressed: _isComplete && !_isLoading ? _verify : null,
                 child: _isLoading
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
                     : const Text('Verify'),
               ),
 
@@ -249,11 +283,15 @@ class _OtpScreenState extends State<OtpScreen> {
                 child: Text.rich(
                   TextSpan(
                     text: 'Wrong number? ',
-                    style: GoogleFonts.inter(fontSize: 14, color: AppColors.onSurfaceVariant),
+                    style: GoogleFonts.inter(
+                        fontSize: 14, color: AppColors.onSurfaceVariant),
                     children: [
                       TextSpan(
                         text: 'Go back',
-                        style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary),
                       ),
                     ],
                   ),
@@ -262,12 +300,67 @@ class _OtpScreenState extends State<OtpScreen> {
 
               const Spacer(),
 
+              // Footer with avatar circles
               Padding(
                 padding: const EdgeInsets.only(bottom: 24),
-                child: Text(
-                  'Join 50,000+ savers securing their future across East Africa.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 56,
+                      height: 28,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 0,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppColors.primary,
+                              child: Text('A',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white)),
+                            ),
+                          ),
+                          Positioned(
+                            left: 16,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppColors.primaryContainer,
+                              child: Text('M',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white)),
+                            ),
+                          ),
+                          Positioned(
+                            left: 32,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppColors.warning,
+                              child: Text('J',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Join 50,000+ savers securing their future across East Africa.',
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: AppColors.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
