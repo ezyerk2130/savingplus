@@ -6,15 +6,13 @@ import type { ContentArticle } from '../types'
 
 const categories = ['All', 'Saving', 'Investing', 'Budgeting', 'Insurance', 'Credit']
 
-const categoryBadge = (category: string) => {
-  switch (category.toLowerCase()) {
-    case 'saving': return 'bg-green-100 text-green-700'
-    case 'investing': return 'bg-blue-100 text-blue-700'
-    case 'budgeting': return 'bg-purple-100 text-purple-700'
-    case 'insurance': return 'bg-amber-100 text-amber-700'
-    case 'credit': return 'bg-red-100 text-red-700'
-    default: return 'bg-gray-100 text-gray-600'
-  }
+const categoryStyle: Record<string, { bg: string; text: string; activeBg: string }> = {
+  all: { bg: 'bg-navy-50', text: 'text-navy-600', activeBg: 'bg-navy-900 text-white' },
+  saving: { bg: 'bg-green-50', text: 'text-green-700', activeBg: 'bg-green-600 text-white' },
+  investing: { bg: 'bg-blue-50', text: 'text-blue-700', activeBg: 'bg-blue-600 text-white' },
+  budgeting: { bg: 'bg-purple-50', text: 'text-purple-700', activeBg: 'bg-purple-600 text-white' },
+  insurance: { bg: 'bg-amber-50', text: 'text-amber-700', activeBg: 'bg-amber-600 text-white' },
+  credit: { bg: 'bg-red-50', text: 'text-red-700', activeBg: 'bg-red-600 text-white' },
 }
 
 export default function Learn() {
@@ -38,22 +36,25 @@ export default function Learn() {
 
   useEffect(() => { loadArticles(activeCategory) }, [activeCategory])
 
+  // Article read view
   if (selectedArticle) {
+    const catKey = selectedArticle.category.toLowerCase()
+    const cs = categoryStyle[catKey] || categoryStyle.all
     return (
       <div className="space-y-6">
         <button
           onClick={() => setSelectedArticle(null)}
-          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-1.5 text-sm font-medium text-navy-500 hover:text-navy-700 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to articles
         </button>
 
         <article className="card">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryBadge(selectedArticle.category)}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`badge ${cs.bg} ${cs.text}`}>
               {selectedArticle.category}
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className="flex items-center gap-1 text-2xs text-navy-400">
               <Clock className="w-3 h-3" /> {selectedArticle.read_time_min} min read
             </span>
           </div>
@@ -62,16 +63,16 @@ export default function Learn() {
             <img
               src={selectedArticle.image_url}
               alt={selectedArticle.title}
-              className="w-full h-48 object-cover rounded-lg mb-4"
+              className="w-full h-52 object-cover rounded-2xl mb-5"
             />
           )}
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">{selectedArticle.title}</h1>
-          <p className="text-xs text-gray-400 mb-6">
+          <h1 className="text-2xl font-bold text-navy-900 mb-2">{selectedArticle.title}</h1>
+          <p className="text-2xs text-navy-400 mb-6">
             {new Date(selectedArticle.created_at).toLocaleDateString('en-TZ', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
 
-          <div className="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap">
+          <div className="prose prose-sm max-w-none text-navy-700 leading-relaxed whitespace-pre-wrap">
             {selectedArticle.body}
           </div>
         </article>
@@ -81,70 +82,93 @@ export default function Learn() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Learn</h1>
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center">
+          <BookOpen className="w-5 h-5 text-primary-600" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-navy-900">Learn</h1>
+          <p className="text-navy-400 text-sm">Financial literacy tips and guides</p>
+        </div>
+      </div>
 
-      {/* Category filter tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              activeCategory === cat
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      {/* Category filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        {categories.map((cat) => {
+          const key = cat.toLowerCase()
+          const cs = categoryStyle[key] || categoryStyle.all
+          const isActive = activeCategory === cat
+          return (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all active:scale-[0.97] ${
+                isActive ? cs.activeBg : `${cs.bg} ${cs.text} hover:opacity-80`
+              }`}
+            >
+              {cat}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600" />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent" />
         </div>
       ) : error ? (
-        <div className="card text-center py-12">
-          <p className="text-gray-600 mb-4">Failed to load articles</p>
+        <div className="card text-center py-16">
+          <p className="text-navy-500 mb-4">Failed to load articles</p>
           <button onClick={() => loadArticles(activeCategory)} className="btn-primary">Retry</button>
         </div>
       ) : articles.length === 0 ? (
-        <div className="card text-center py-12">
-          <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No articles available{activeCategory !== 'All' ? ` in ${activeCategory}` : ''}</p>
+        <div className="card text-center py-16">
+          <div className="w-16 h-16 bg-navy-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <BookOpen className="w-8 h-8 text-navy-300" />
+          </div>
+          <p className="text-navy-500 font-medium">No articles available</p>
+          <p className="text-navy-400 text-sm mt-1">
+            {activeCategory !== 'All' ? `Nothing in ${activeCategory} yet` : 'Check back soon'}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {articles.map((article) => (
-            <button
-              key={article.id}
-              onClick={() => setSelectedArticle(article)}
-              className="card border border-gray-200 text-left hover:border-primary-300 hover:shadow-md transition-all"
-            >
-              {article.image_url && (
-                <img
-                  src={article.image_url}
-                  alt={article.title}
-                  className="w-full h-32 object-cover rounded-lg mb-3"
-                />
-              )}
+          {articles.map((article) => {
+            const catKey = article.category.toLowerCase()
+            const cs = categoryStyle[catKey] || categoryStyle.all
+            return (
+              <button
+                key={article.id}
+                onClick={() => setSelectedArticle(article)}
+                className="card text-left hover:border-primary-200 hover:shadow-md transition-all group"
+              >
+                {article.image_url && (
+                  <img
+                    src={article.image_url}
+                    alt={article.title}
+                    className="w-full h-36 object-cover rounded-2xl mb-3 group-hover:scale-[1.02] transition-transform"
+                  />
+                )}
 
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryBadge(article.category)}`}>
-                  {article.category}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Clock className="w-3 h-3" /> {article.read_time_min} min
-                </span>
-              </div>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className={`badge ${cs.bg} ${cs.text}`}>
+                    {article.category}
+                  </span>
+                  <span className="flex items-center gap-1 text-2xs text-navy-400">
+                    <Clock className="w-3 h-3" /> {article.read_time_min} min
+                  </span>
+                </div>
 
-              <h3 className="font-semibold text-gray-900 mb-1">{article.title}</h3>
-              <p className="text-xs text-gray-500 line-clamp-2">
-                {article.body.slice(0, 120)}{article.body.length > 120 ? '...' : ''}
-              </p>
-            </button>
-          ))}
+                <h3 className="font-semibold text-navy-900 mb-1.5 group-hover:text-primary-700 transition-colors">
+                  {article.title}
+                </h3>
+                <p className="text-2xs text-navy-400 line-clamp-2">
+                  {article.body.slice(0, 120)}{article.body.length > 120 ? '...' : ''}
+                </p>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

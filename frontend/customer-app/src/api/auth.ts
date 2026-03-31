@@ -25,4 +25,17 @@ export const authApi = {
 
   logout: (refresh_token: string) =>
     api.post('/auth/logout', { refresh_token }),
+
+  // Two-Factor Authentication
+  enable2FA: () =>
+    api.post<{ secret: string; qr_url?: string }>('/auth/2fa/enable'),
+
+  verify2FA: (code: string) =>
+    api.post<{ message: string }>('/auth/2fa/verify', { code }),
+
+  disable2FA: () =>
+    api.post<{ message: string }>('/auth/2fa/disable'),
+
+  get2FAStatus: () =>
+    api.get<{ enabled: boolean }>('/auth/2fa/status'),
 }
