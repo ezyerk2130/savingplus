@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/app_lock_provider.dart';
 import '../../core/utils/theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -43,6 +44,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     if (auth.isAuthenticated) {
+      context.read<AppLockProvider>().onLogin();
       context.go('/home');
     } else {
       final prefs = await SharedPreferences.getInstance();

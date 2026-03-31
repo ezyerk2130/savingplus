@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_client.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/app_lock_provider.dart';
 import '../../core/utils/formatters.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -351,7 +352,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         );
                         if (confirmed == true && mounted) {
                           await context.read<AuthProvider>().logout();
-                          if (mounted) context.go('/login');
+                          if (mounted) {
+                            context.read<AppLockProvider>().onLogout();
+                            context.go('/login');
+                          }
                         }
                       },
                       icon: const Icon(Icons.logout, color: Colors.red),

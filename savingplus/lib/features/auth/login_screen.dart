@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/app_lock_provider.dart';
 import '../../core/utils/theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     await auth.biometricLogin();
     if (!mounted) return;
     if (auth.isAuthenticated) {
+      context.read<AppLockProvider>().onLogin();
       context.go('/home');
     }
   }
@@ -43,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     await auth.login(phone, password);
     if (!mounted) return;
     if (auth.isAuthenticated) {
+      context.read<AppLockProvider>().onLogin();
       context.go('/home');
     }
   }

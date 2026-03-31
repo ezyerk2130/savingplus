@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'core/providers/auth_provider.dart';
+import 'core/providers/app_lock_provider.dart';
 import 'core/utils/theme.dart';
+import 'features/lock/lock_screen.dart';
 import 'features/onboarding/splash_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/auth/login_screen.dart';
@@ -39,6 +41,11 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final lock = AppLockProvider();
+          lock.init();
+          return lock;
+        }),
       ],
       child: const SavingPlusApp(),
     ),
@@ -50,11 +57,13 @@ class SavingPlusApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'SavingPlus',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      routerConfig: _router,
+    return LockScreen(
+      child: MaterialApp.router(
+        title: 'SavingPlus',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        routerConfig: _router,
+      ),
     );
   }
 }
