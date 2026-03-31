@@ -167,12 +167,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+                          ),
                           child: Row(children: [
-                            const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 22),
-                            const SizedBox(width: 10),
-                            Expanded(child: Text("You've saved for 7 days in a row!", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primary))),
+                            Container(
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.local_fire_department, color: AppColors.secondary, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("You've saved for 14 days in a row!", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onBackground)),
+                                const SizedBox(height: 2),
+                                Text('Keep it up.', style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceVariant)),
+                              ],
+                            )),
                           ]),
                         ),
                       ),
@@ -188,13 +206,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Row(children: [
-                          _QuickAction(icon: Icons.autorenew, label: 'AutoSave', color: AppColors.primary, onTap: () => context.push('/savings/new')),
+                          _QuickAction(icon: Icons.trending_up, label: 'Invest', color: AppColors.primary, onTap: () => context.push('/invest')),
                           const SizedBox(width: 12),
-                          _QuickAction(icon: Icons.lock_outline, label: 'SafeLock', color: AppColors.secondary, onTap: () => context.push('/savings/new')),
+                          _QuickAction(icon: Icons.people_outline, label: 'Circles', color: AppColors.secondary, onTap: () => context.go('/circles')),
                           const SizedBox(width: 12),
-                          _QuickAction(icon: Icons.flag_outlined, label: 'Goals', color: const Color(0xFF6366F1), onTap: () => context.push('/savings/new')),
+                          _QuickAction(icon: Icons.shield_outlined, label: 'Insurance', color: const Color(0xFF6366F1), onTap: () => context.push('/insurance')),
                           const SizedBox(width: 12),
-                          _QuickAction(icon: Icons.people_outline, label: 'Circles', color: const Color(0xFFE8A317), onTap: () => context.go('/circles')),
+                          _QuickAction(icon: Icons.savings_outlined, label: 'Save', color: const Color(0xFFE8A317), onTap: () => context.go('/save')),
                         ]),
                       ),
 
