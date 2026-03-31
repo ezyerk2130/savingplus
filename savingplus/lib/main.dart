@@ -34,6 +34,7 @@ import 'features/flex_wallet/flex_wallet_screen.dart';
 import 'features/circle_detail/circle_detail_screen.dart';
 import 'features/verification/verification_progress_screen.dart';
 import 'features/verification/verification_success_screen.dart';
+import 'features/two_factor/two_factor_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,6 +121,7 @@ final _router = GoRouter(
     )),
     GoRoute(path: '/verification/progress', builder: (_, __) => const VerificationProgressScreen()),
     GoRoute(path: '/verification/success', builder: (_, __) => const VerificationSuccessScreen()),
+    GoRoute(path: '/2fa', builder: (_, __) => const TwoFactorScreen()),
   ],
 );
 
