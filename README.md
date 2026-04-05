@@ -56,7 +56,68 @@ savingplus/
 
 ## Quick Start
 
-### Prerequisites
+### Option A: Docker (Recommended)
+
+The easiest way to run the full stack. Requires only **Docker** and **Docker Compose**.
+
+```bash
+# Start everything (PostgreSQL, Redis, Backend API, Customer App, Admin App)
+docker compose up --build
+
+# First time only — seed admin users (in a separate terminal)
+docker compose exec api ./savingplus-seed
+```
+
+That's it. The services are available at:
+
+| Service | URL |
+|---------|-----|
+| Customer Web App | http://localhost:3000 |
+| Admin Web App | http://localhost:3001 |
+| Customer API | http://localhost:8080 |
+| Admin API | http://localhost:8081 |
+
+**Default admin login:** `admin@savingplus.co.tz` / `Admin@123456` / any 6-digit MFA code (dev mode)
+
+Common Docker commands:
+
+```bash
+# Run in background
+docker compose up -d --build
+
+# View logs
+docker compose logs -f              # All services
+docker compose logs -f api          # Backend only
+
+# Stop everything
+docker compose down
+
+# Stop and remove all data (reset database)
+docker compose down -v
+
+# Rebuild a single service after code changes
+docker compose up --build api       # Rebuild backend only
+docker compose up --build customer-app  # Rebuild customer app only
+```
+
+#### Connecting Flutter to Docker
+
+```bash
+cd savingplus
+flutter pub get
+
+# Edit lib/core/api/api_client.dart line 10
+# Set _lanIp to your PC's WiFi IP (run ipconfig / ifconfig to find it)
+# The Flutter app connects to the backend API over your local network
+
+flutter run
+```
+
+---
+
+### Option B: Manual Setup (Without Docker)
+
+#### Prerequisites
 
 | Tool | Version | Purpose |
 |------|---------|---------|
@@ -66,7 +127,7 @@ savingplus/
 | Redis | 7+ | Cache, rate limit, jobs |
 | Flutter | 3.11+ | Mobile app (optional) |
 
-### 1. Backend
+#### 1. Backend
 
 ```bash
 cd backend
@@ -81,7 +142,7 @@ go run ./cmd/seedadmin/main.go
 
 The backend starts on **port 8080** (customer API) and **port 8081** (admin API).
 
-### 2. Customer Web App
+#### 2. Customer Web App
 
 ```bash
 cd frontend/customer-app
@@ -89,7 +150,7 @@ npm install
 npm run dev             # http://localhost:3000
 ```
 
-### 3. Admin Web App
+#### 3. Admin Web App
 
 ```bash
 cd frontend/admin-app
@@ -99,7 +160,7 @@ npm run dev             # http://localhost:3001
 
 **Default admin login:** `admin@savingplus.co.tz` / `Admin@123456` / any 6-digit MFA code (dev mode)
 
-### 4. Flutter Mobile App
+#### 4. Flutter Mobile App
 
 ```bash
 cd savingplus
