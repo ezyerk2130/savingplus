@@ -4,11 +4,18 @@ import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'token_storage.dart';
 
 class ApiConfig {
+  /// Production / staging base URL. Pass with:
+  ///   flutter build apk --release --dart-define=API_BASE_URL=https://<host>/api/v1
+  /// When empty, falls back to local dev defaults below.
+  static const String _envBaseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
+
   /// Change this to your PC's WiFi IP for physical device testing.
   /// Find it with: ipconfig (Windows) or ifconfig (Mac/Linux)
   static const String _lanIp = '192.168.1.112';
 
   static String get baseUrl {
+    if (_envBaseUrl.isNotEmpty) return _envBaseUrl;
     if (kIsWeb) return 'http://localhost:8080/api/v1';
     if (Platform.isAndroid) return 'http://$_lanIp:8080/api/v1';
     return 'http://localhost:8080/api/v1'; // iOS simulator, desktop

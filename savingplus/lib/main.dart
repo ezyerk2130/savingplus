@@ -73,33 +73,33 @@ final _router = GoRouter(
   initialLocation: '/splash',
   routes: [
     // Splash → checks auth → routes to onboarding/login/home
-    GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
-    GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
-    GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
-    GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
+    GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+    GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+    GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
 
     // Main app with bottom nav
     ShellRoute(
       builder: (context, state, child) => _AppShell(child: child),
       routes: [
-        GoRoute(path: '/home', builder: (_, __) => const DashboardScreen()),
-        GoRoute(path: '/save', builder: (_, __) => const SavingsScreen()),
-        GoRoute(path: '/circles', builder: (_, __) => const GroupsScreen()),
-        GoRoute(path: '/wallet', builder: (_, __) => const TransactionsScreen()),
-        GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+        GoRoute(path: '/home', builder: (_, _) => const DashboardScreen()),
+        GoRoute(path: '/save', builder: (_, _) => const SavingsScreen()),
+        GoRoute(path: '/circles', builder: (_, _) => const GroupsScreen()),
+        GoRoute(path: '/wallet', builder: (_, _) => const TransactionsScreen()),
+        GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       ],
     ),
 
     // Full-screen routes (no bottom nav)
-    GoRoute(path: '/deposit', builder: (_, __) => const DepositScreen()),
-    GoRoute(path: '/withdraw', builder: (_, __) => const WithdrawScreen()),
-    GoRoute(path: '/savings/new', builder: (_, __) => const CreatePlanScreen()),
-    GoRoute(path: '/invest', builder: (_, __) => const InvestmentsScreen()),
-    GoRoute(path: '/insurance', builder: (_, __) => const InsuranceScreen()),
-    GoRoute(path: '/loans', builder: (_, __) => const LoansScreen()),
-    GoRoute(path: '/learn', builder: (_, __) => const LearnScreen()),
-    GoRoute(path: '/kyc', builder: (_, __) => const KycScreen()),
-    GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
+    GoRoute(path: '/deposit', builder: (_, _) => const DepositScreen()),
+    GoRoute(path: '/withdraw', builder: (_, _) => const WithdrawScreen()),
+    GoRoute(path: '/savings/new', builder: (_, _) => const CreatePlanScreen()),
+    GoRoute(path: '/invest', builder: (_, _) => const InvestmentsScreen()),
+    GoRoute(path: '/insurance', builder: (_, _) => const InsuranceScreen()),
+    GoRoute(path: '/loans', builder: (_, _) => const LoansScreen()),
+    GoRoute(path: '/learn', builder: (_, _) => const LearnScreen()),
+    GoRoute(path: '/kyc', builder: (_, _) => const KycScreen()),
+    GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
     GoRoute(path: '/otp', builder: (context, state) => OtpScreen(phone: state.uri.queryParameters['phone'] ?? '')),
     GoRoute(path: '/pin', builder: (context, state) => PinEntryScreen(
       title: state.uri.queryParameters['title'] ?? 'Enter PIN',
@@ -110,18 +110,18 @@ final _router = GoRouter(
       amount: double.tryParse(state.uri.queryParameters['amount'] ?? '0') ?? 0,
       paymentMethod: state.uri.queryParameters['method'] ?? 'M-Pesa',
     )),
-    GoRoute(path: '/autosave/setup', builder: (_, __) => const AutoSaveSetupScreen()),
+    GoRoute(path: '/autosave/setup', builder: (_, _) => const AutoSaveSetupScreen()),
     GoRoute(path: '/autosave/detail', builder: (context, state) => AutoSaveDetailScreen(
       planId: state.uri.queryParameters['id'] ?? '',
     )),
-    GoRoute(path: '/safelock', builder: (_, __) => const SafeLockScreen()),
-    GoRoute(path: '/flex-wallet', builder: (_, __) => const FlexWalletScreen()),
+    GoRoute(path: '/safelock', builder: (_, _) => const SafeLockScreen()),
+    GoRoute(path: '/flex-wallet', builder: (_, _) => const FlexWalletScreen()),
     GoRoute(path: '/circle/detail', builder: (context, state) => CircleDetailScreen(
       groupId: state.uri.queryParameters['id'] ?? '',
     )),
-    GoRoute(path: '/verification/progress', builder: (_, __) => const VerificationProgressScreen()),
-    GoRoute(path: '/verification/success', builder: (_, __) => const VerificationSuccessScreen()),
-    GoRoute(path: '/2fa', builder: (_, __) => const TwoFactorScreen()),
+    GoRoute(path: '/verification/progress', builder: (_, _) => const VerificationProgressScreen()),
+    GoRoute(path: '/verification/success', builder: (_, _) => const VerificationSuccessScreen()),
+    GoRoute(path: '/2fa', builder: (_, _) => const TwoFactorScreen()),
   ],
 );
 

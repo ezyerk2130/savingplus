@@ -151,8 +151,8 @@ class _LockScreenState extends State<LockScreen> {
                           }
                           if (key == 'del') {
                             return _KeypadButton(
-                              child: Icon(Icons.backspace_outlined, color: AppColors.onSurfaceVariant, size: 24),
                               onTap: _removeDigit,
+                              child: Icon(Icons.backspace_outlined, color: AppColors.onSurfaceVariant, size: 24),
                             );
                           }
                           return _KeypadButton(

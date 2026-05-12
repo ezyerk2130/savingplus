@@ -248,7 +248,7 @@ class _LoansScreenState extends State<LoansScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
-                      value: _selectedTerm,
+                      initialValue: _selectedTerm,
                       decoration: const InputDecoration(labelText: 'Term', border: OutlineInputBorder()),
                       items: _terms.map((t) => DropdownMenuItem(value: t, child: Text('$t days'))).toList(),
                       onChanged: (v) => setState(() => _selectedTerm = v!),

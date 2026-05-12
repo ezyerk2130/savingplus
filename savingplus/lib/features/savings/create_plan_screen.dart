@@ -235,7 +235,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   Switch(
                     value: _addCoSavers,
                     onChanged: (v) => setState(() => _addCoSavers = v),
-                    activeColor: AppColors.primary,
+                    activeThumbColor: AppColors.primary,
                   ),
                 ],
               ),

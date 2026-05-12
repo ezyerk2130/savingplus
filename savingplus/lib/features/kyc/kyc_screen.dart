@@ -54,8 +54,11 @@ class _KycScreenState extends State<KycScreen> {
     final file = await picker.pickImage(source: ImageSource.camera, imageQuality: 80);
     if (file != null) {
       setState(() {
-        if (isFront) _frontFile = file;
-        else _backFile = file;
+        if (isFront) {
+          _frontFile = file;
+        } else {
+          _backFile = file;
+        }
       });
     }
   }

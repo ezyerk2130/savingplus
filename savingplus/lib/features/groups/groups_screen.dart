@@ -120,7 +120,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: type,
+                  initialValue: type,
                   decoration: const InputDecoration(labelText: 'Type'),
                   items: const [
                     DropdownMenuItem(
@@ -143,7 +143,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: frequency,
+                  initialValue: frequency,
                   decoration: const InputDecoration(labelText: 'Frequency'),
                   items: const [
                     DropdownMenuItem(value: 'daily', child: Text('Daily')),
